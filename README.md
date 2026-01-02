@@ -143,7 +143,7 @@ tokn remove <name>
 
 ```bash
 # Track all 6 tokens (one-time setup)
-tokn track github-pat --service github --rotation-type auto \
+tokn track github-pat --service github --rotation-type manual \
   --location "doppler:GITHUB_TOKEN:project=akamai-infra,config=dev" \
   --location "git-credentials:~/.git-credentials:username=git"
 
@@ -194,8 +194,12 @@ tokn/
 
 - **No token storage** - Tokens read from Doppler/files on-demand
 - **Metadata only** - Only expiry dates and rotation history stored
+- **Secure file permissions** - All credential files created with `0600` (owner-only)
+- **In-memory backups** - No plaintext tokens written to disk during rollback
 - **Atomic operations** - Rollback on partial failures
-- **Backup before update** - All locations backed up before rotation
+- **No logging** - Tokens never printed to console or logs
+
+See `docs/EXPLAIN.md` for detailed security architecture.
 
 ## License
 

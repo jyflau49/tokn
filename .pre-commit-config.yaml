@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      - id: trivy-fs
+        name: Trivy filesystem scan
+        entry: trivy fs --exit-code 1 --severity HIGH,CRITICAL .
+        language: system
+        pass_filenames: false
+      - id: trivy-config
+        name: Trivy config scan
+        entry: trivy config --exit-code 1 --severity HIGH,CRITICAL .
+        language: system
+        pass_filenames: false
+      - id: ty
+        name: Type check with ty
+        entry: uvx ty check src
+        language: system
+        pass_filenames: false
+        types: [python]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format

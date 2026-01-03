@@ -1,6 +1,5 @@
 """Tests for provider plugins."""
 
-import pytest
 
 from tokn.providers.base import RotationResult
 from tokn.providers.github import GitHubProvider

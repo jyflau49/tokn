@@ -1,16 +1,12 @@
 """Tests for location handlers with security focus."""
 
-import os
 import stat
-from pathlib import Path
-
-import pytest
 
 from tokn.locations.local_files import (
+    SECURE_FILE_MODE,
     GitCredentialsHandler,
     LinodeCLIHandler,
     TerraformCredentialsHandler,
-    SECURE_FILE_MODE,
 )
 
 
@@ -116,7 +112,9 @@ class TestTerraformCredentialsHandler:
         """Verify token extraction from terraform credentials JSON."""
         handler = TerraformCredentialsHandler()
         cred_file = tmp_path / "credentials.tfrc.json"
-        cred_file.write_text('{"credentials": {"app.terraform.io": {"token": "secret"}}}')
+        cred_file.write_text(
+            '{"credentials": {"app.terraform.io": {"token": "secret"}}}'
+        )
 
         token = handler.read_token(str(cred_file))
 

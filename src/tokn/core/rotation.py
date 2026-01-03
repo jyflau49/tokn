@@ -1,7 +1,10 @@
 """Batch rotation orchestrator with rollback support."""
 
+import subprocess
 from datetime import datetime
 from typing import Any
+
+import httpx
 
 from tokn.core.backend import DopplerBackend
 from tokn.core.token import RotationType, TokenMetadata
@@ -77,6 +80,9 @@ class RotationOrchestrator:
             if not result.success:
                 return False, f"Rotation failed: {result.error}", []
 
+            if not result.new_token:
+                return False, "Rotation succeeded but no token returned", []
+
             for location in token_metadata.locations:
                 success = self._update_location(
                     location.type,
@@ -101,9 +107,18 @@ class RotationOrchestrator:
 
             return True, "Token rotated successfully", updated_locations
 
+        except httpx.HTTPError as e:
+            self._rollback_all(backups)
+            return False, f"API error during rotation: {str(e)}", []
+        except subprocess.CalledProcessError as e:
+            self._rollback_all(backups)
+            return False, f"Doppler CLI error: {e.stderr or str(e)}", []
+        except FileNotFoundError as e:
+            self._rollback_all(backups)
+            return False, f"File not found: {str(e)}", []
         except Exception as e:
             self._rollback_all(backups)
-            return False, f"Rotation error: {str(e)}", []
+            return False, f"Unexpected error: {str(e)}", []
 
     def rotate_all(
         self, auto_only: bool = True, dry_run: bool = False
@@ -177,11 +192,11 @@ class RotationOrchestrator:
         return False
 
     def _rollback_all(self, backups: dict[str, str]) -> None:
-        for location_key, backup_path in backups.items():
+        for location_key, backup_content in backups.items():
             location_type, path = location_key.split(":", 1)
             handler = self.location_handlers.get(location_type)
             if handler:
-                handler.rollback_token(path, backup_path)
+                handler.rollback_token(path, backup_content)
 
     def _get_rotation_kwargs(self, token_metadata: TokenMetadata) -> dict[str, Any]:
         kwargs = {}

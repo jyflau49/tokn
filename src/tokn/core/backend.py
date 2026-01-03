@@ -1,6 +1,7 @@
 """Doppler backend for metadata storage and multi-laptop sync."""
 
 import json
+import shutil
 import subprocess
 from datetime import datetime
 
@@ -13,6 +14,7 @@ class DopplerBackend:
     def __init__(self, project: str = "tokn", config: str = "dev"):
         self.project = project
         self.config = config
+        self._check_doppler_cli()
 
     def _run_doppler(self, args: list[str]) -> str:
         cmd = ["doppler", "secrets"] + args + [
@@ -86,3 +88,13 @@ class DopplerBackend:
 
         cmd = ["doppler", "secrets"] + args
         subprocess.run(cmd, check=True, capture_output=True)
+
+    def _check_doppler_cli(self) -> None:
+        """Check if Doppler CLI is available."""
+        if not shutil.which("doppler"):
+            raise RuntimeError(
+                "Doppler CLI not found. Please install it:\n"
+                "  macOS: brew install dopplerhq/cli/doppler\n"
+                "  Linux: https://docs.doppler.com/docs/install-cli\n"
+                "Then run: doppler login"
+            )

@@ -25,7 +25,15 @@ def cli():
 @click.option(
     "--service",
     required=True,
-    help="Service provider (github, cloudflare, linode-cli, etc.)"
+    type=click.Choice([
+        "github",
+        "cloudflare",
+        "linode-cli",
+        "linode-doppler",
+        "terraform-account",
+        "terraform-org"
+    ]),
+    help="Service provider"
 )
 @click.option("--rotation-type", type=click.Choice(["auto", "manual"]), default="auto")
 @click.option(
@@ -57,8 +65,18 @@ def track(
             console.print(f"[red]Invalid location format: {loc}. Use 'type:path'[/red]")
             return
 
-        loc_type, loc_path = loc.split(":", 1)
-        locations.append(TokenLocation(type=loc_type, path=loc_path))
+        parts = loc.split(":", 2)
+        loc_type = parts[0]
+        loc_path = parts[1]
+        metadata = {}
+
+        if len(parts) == 3:
+            for pair in parts[2].split(","):
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
+                    metadata[key.strip()] = value.strip()
+
+        locations.append(TokenLocation(type=loc_type, path=loc_path, metadata=metadata))
 
     if not locations:
         console.print("[red]At least one location is required[/red]")

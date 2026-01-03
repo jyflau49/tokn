@@ -2,11 +2,8 @@
 
 from datetime import datetime, timedelta
 
-import pytest
-
 from tokn.core.token import (
     RotationType,
-    TokenLocation,
     TokenMetadata,
     TokenRegistry,
     TokenStatus,
@@ -48,18 +45,18 @@ def test_token_status_expired():
 
 def test_token_registry_operations():
     registry = TokenRegistry()
-    
+
     token = TokenMetadata(
         name="test",
         service="github",
         rotation_type=RotationType.AUTO,
         locations=[]
     )
-    
+
     registry.add_token(token)
     assert registry.get_token("test") == token
     assert len(registry.list_tokens()) == 1
-    
+
     assert registry.remove_token("test") is True
     assert registry.get_token("test") is None
     assert len(registry.list_tokens()) == 0

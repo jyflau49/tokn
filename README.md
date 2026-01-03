@@ -38,8 +38,8 @@ doppler setup --project tokn --config dev
 ```bash
 tokn track github-pat \
   --service github \
-  --rotation-type auto \
-  --location "doppler:GITHUB_TOKEN:project=akamai-infra,config=dev" \
+  --rotation-type manual \
+  --location "doppler:GITHUB_TOKEN:project=my-infra,config=dev" \
   --location "git-credentials:~/.git-credentials:username=git"
 ```
 
@@ -144,14 +144,14 @@ tokn remove <name>
 ```bash
 # Track all 6 tokens (one-time setup)
 tokn track github-pat --service github --rotation-type manual \
-  --location "doppler:GITHUB_TOKEN:project=akamai-infra,config=dev" \
+  --location "doppler:GITHUB_TOKEN:project=my-infra,config=dev" \
   --location "git-credentials:~/.git-credentials:username=git"
 
 tokn track cloudflare-token --service cloudflare --rotation-type auto \
   --location "doppler:CLOUDFLARE_API_TOKEN:project=magictracker,config=prod"
 
 tokn track linode-cli --service linode-cli --rotation-type auto \
-  --location "doppler:LINODE_CLI_TOKEN:project=akamai-infra,config=dev" \
+  --location "doppler:LINODE_CLI_TOKEN:project=my-infra,config=dev" \
   --location "linode-cli:~/.config/linode-cli"
 
 tokn track linode-doppler --service linode-doppler --rotation-type auto \

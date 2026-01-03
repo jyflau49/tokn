@@ -23,4 +23,5 @@ Manual rotation required for HCP Terraform Account Token:
 1. Run: terraform login
 2. Follow OAuth flow in browser
 3. Token will be saved to ~/.terraform.d/credentials.tfrc.json
+4. Run: tokn update <name> --expiry-days <days>
 """

@@ -6,12 +6,17 @@ from datetime import datetime
 
 class RotationResult:
     def __init__(
-        self, success: bool, new_token: str | None = None, error: str | None = None
+        self,
+        success: bool,
+        new_token: str | None = None,
+        error: str | None = None,
+        expires_at: datetime | None = None,
     ):
         self.success = success
         self.new_token = new_token
         self.error = error
         self.rotated_at = datetime.now()
+        self.expires_at = expires_at
 
 
 class TokenProvider(ABC):

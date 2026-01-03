@@ -1,6 +1,6 @@
 # tokn - Architectural Decisions and Design Rationale
 
-*Modified: 2026-01-03 (v0.2.0)*
+*Modified: 2026-01-03 (v0.3.0)*
 
 ## Overview
 
@@ -292,6 +292,35 @@ tokn update <name> --expiry-days 90
 tokn update <name> --add-location "doppler:NEW_SECRET:project=proj,config=cfg"
 tokn update <name> --remove-location "doppler:OLD_SECRET"
 ```
+
+---
+
+### 12. Auto-Update Expiry After Rotation
+
+**Date:** 2026-01-03
+
+**Context:** After rotation, `expires_at` metadata was not being updated. Providers calculated expiry dates but never returned them, causing `tokn status` to show stale expiry information.
+
+**Decision:** Add `expires_at` field to `RotationResult` and update metadata after successful rotation.
+
+**Rationale:**
+- Accurate expiry tracking is critical for token lifecycle management
+- Users rely on `tokn status` to know when tokens need rotation
+- Providers already calculate expiry dates - just need to return them
+
+**Implementation:**
+```python
+# RotationResult now includes expires_at
+result = RotationResult(success=True, new_token=token, expires_at=expiry_date)
+
+# Orchestrator updates metadata
+if result.expires_at:
+    token_metadata.expires_at = result.expires_at
+```
+
+**Trade-offs:**
+- **Sacrificed:** Nothing - this fixes a critical bug
+- **Gained:** Accurate expiry tracking, reliable status reporting
 
 ---
 

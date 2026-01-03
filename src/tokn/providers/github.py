@@ -30,13 +30,12 @@ class GitHubProvider(TokenProvider):
         # Validate current token is still working
         if not self._validate_token(current_token):
             return RotationResult(
-                success=False,
-                error="Current token is invalid or expired"
+                success=False, error="Current token is invalid or expired"
             )
 
         return RotationResult(
             success=False,
-            error="GitHub PATs require manual rotation. See instructions."
+            error="GitHub PATs require manual rotation. See instructions.",
         )
 
     def _validate_token(self, token: str) -> bool:
@@ -44,8 +43,7 @@ class GitHubProvider(TokenProvider):
         try:
             with httpx.Client() as client:
                 response = client.get(
-                    f"{self.API_BASE}/user",
-                    headers={"Authorization": f"token {token}"}
+                    f"{self.API_BASE}/user", headers={"Authorization": f"token {token}"}
                 )
                 return response.status_code == 200
         except Exception:
@@ -62,5 +60,5 @@ Manual rotation required for GitHub PAT:
 5. Generate and copy the new token
 6. Update in Doppler: doppler secrets set GITHUB_TOKEN=<new_token>
 7. Update ~/.git-credentials manually
-8. Run: tokn sync to update metadata
+8. Run: tokn update <name> --expiry-days <days>
 """

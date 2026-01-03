@@ -27,7 +27,7 @@ class LinodeProvider(TokenProvider):
 
         try:
             with httpx.Client() as client:
-                new_token = self._create_token(
+                new_token, expires_at = self._create_token(
                     client, current_token, label, scopes, expiry_days
                 )
 
@@ -35,7 +35,9 @@ class LinodeProvider(TokenProvider):
                 if old_token_id:
                     self._revoke_token(client, current_token, old_token_id)
 
-                return RotationResult(success=True, new_token=new_token)
+                return RotationResult(
+                    success=True, new_token=new_token, expires_at=expires_at
+                )
 
         except Exception as e:
             return RotationResult(success=False, error=str(e))
@@ -63,7 +65,7 @@ class LinodeProvider(TokenProvider):
         label: str,
         scopes: str,
         expiry_days: int,
-    ) -> str:
+    ) -> tuple[str, datetime]:
         expiry_date = datetime.now() + timedelta(days=expiry_days)
         expiry = expiry_date.strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -76,7 +78,7 @@ class LinodeProvider(TokenProvider):
             json={"label": label, "scopes": scopes, "expiry": expiry},
         )
         response.raise_for_status()
-        return response.json()["token"]
+        return response.json()["token"], expiry_date
 
     def _revoke_token(self, client: httpx.Client, token: str, token_id: int) -> None:
         client.delete(

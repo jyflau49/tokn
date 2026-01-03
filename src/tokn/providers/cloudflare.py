@@ -63,11 +63,13 @@ class CloudflareProvider(TokenProvider):
                 )
 
                 # Update token expiry (use new token for auth)
-                self._update_token_expiry(
+                expires_at = self._update_token_expiry(
                     client, new_token, account_id, token_id, token_details, expiry_days
                 )
 
-                return RotationResult(success=True, new_token=new_token)
+                return RotationResult(
+                    success=True, new_token=new_token, expires_at=expires_at
+                )
 
         except httpx.HTTPStatusError as e:
             error_detail = ""
@@ -176,8 +178,8 @@ class CloudflareProvider(TokenProvider):
         token_id: str,
         token_details: dict,
         expiry_days: int,
-    ) -> None:
-        """Update token expiry date."""
+    ) -> datetime:
+        """Update token expiry date and return new expiry datetime."""
         new_expiry = datetime.now(UTC) + timedelta(days=expiry_days)
         expiry_str = new_expiry.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -207,3 +209,4 @@ class CloudflareProvider(TokenProvider):
             },
         )
         response.raise_for_status()
+        return new_expiry

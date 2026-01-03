@@ -93,6 +93,9 @@ class RotationOrchestrator:
             if result.rotated_at:
                 token_metadata.last_rotated = result.rotated_at
 
+            if result.expires_at:
+                token_metadata.expires_at = result.expires_at
+
             registry = self.backend.load_registry()
             registry.add_token(token_metadata)
             self.backend.save_registry(registry)

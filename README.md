@@ -58,9 +58,6 @@ tokn rotate --all
 
 # Rotate specific token
 tokn rotate github-pat
-
-# Dry run
-tokn rotate --all --dry-run
 ```
 
 ## Supported Services
@@ -74,10 +71,9 @@ tokn rotate --all --dry-run
 | HCP Terraform Account | `terraform-account` | ✗ (OAuth) | `~/.terraform.d/credentials.tfrc.json` |
 
 **Notes:**
-- GitHub PATs cannot be programmatically rotated without an OAuth App. The tool provides guided manual rotation instructions.
-- Cloudflare tokens require `account_id` in location metadata. Rotation rolls the token value and updates expiry to 90 days.
-- Linode tokens are created with 90-day expiry on rotation.
-- You can specify multiple `--location` flags to update the same token in different Doppler configs or local files.
+- Cloudflare tokens require `account_id` in location metadata
+- All auto-rotated tokens expire 90 days after rotation
+- Multiple `--location` flags supported for updating same token across locations
 
 ## Commands
 
@@ -100,8 +96,6 @@ tokn track <name> \
 - Git credentials: `git-credentials:~/.git-credentials:username=git`
 - Linode CLI: `linode-cli:~/.config/linode-cli`
 - Terraform: `terraform-credentials:~/.terraform.d/credentials.tfrc.json:hostname=app.terraform.io`
-
-**Note:** Cloudflare tokens require `account_id` in location metadata for rotation.
 
 ### `tokn status`
 

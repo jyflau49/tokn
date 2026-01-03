@@ -19,7 +19,7 @@ wheels/
 htmlcov/
 
 # Backups
-*.tokn-backup
+*.txt
 
 # Local config
 .env

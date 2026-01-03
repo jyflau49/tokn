@@ -68,7 +68,8 @@ class LinodeProvider(TokenProvider):
         scopes: str,
         expiry_days: int
     ) -> str:
-        expiry = (datetime.now() + timedelta(days=expiry_days)).strftime("%Y-%m-%dT%H:%M:%S")
+        expiry_date = datetime.now() + timedelta(days=expiry_days)
+        expiry = expiry_date.strftime("%Y-%m-%dT%H:%M:%S")
 
         response = client.post(
             f"{self.API_BASE}/profile/tokens",

@@ -4,3 +4,4 @@ Manages token rotation across multiple services with Doppler backend sync.
 """
 
 __version__ = "0.1.0"
+__all__ = ["__version__"]

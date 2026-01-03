@@ -6,6 +6,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from tokn import __version__
 from tokn.core.backend import DopplerBackend
 from tokn.core.rotation import RotationOrchestrator
 from tokn.core.token import RotationType, TokenLocation, TokenMetadata, TokenStatus
@@ -14,7 +15,7 @@ console = Console()
 
 
 @click.group()
-@click.version_option(version="0.1.0")
+@click.version_option(version=__version__)
 def cli():
     """tokn - Automated monthly API token rotation."""
     pass
@@ -94,7 +95,10 @@ def track(
     registry.add_token(token_metadata)
     backend.save_registry(registry)
 
-    console.print(f"[green]✓[/green] Token '{name}' tracked successfully")
+    console.print("[green]✓ Token tracked successfully[/green]")
+    console.print(f"  [cyan]Name:[/cyan] {name}")
+    console.print(f"  [cyan]Service:[/cyan] {service}")
+    console.print(f"  [cyan]Type:[/cyan] {rotation_type}")
 
 
 @cli.command()
@@ -117,45 +121,50 @@ def rotate(rotate_all: bool, auto_only: bool, dry_run: bool, token_name: str):
     backend = DopplerBackend()
 
     if dry_run:
-        console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]\n")
+        console.print(
+            "[bold yellow]DRY RUN MODE[/bold yellow] - No changes will be made\n"
+        )
 
     if rotate_all:
         results = orchestrator.rotate_all(auto_only=auto_only, dry_run=dry_run)
 
         if results["success"]:
-            console.print("[green]Successfully rotated:[/green]")
+            console.print("[bold green]✓ Successfully rotated:[/bold green]")
             for item in results["success"]:
-                console.print(f"  ✓ {item['name']}")
+                console.print(f"  [green]•[/green] [cyan]{item['name']}[/cyan]")
                 for loc in item["locations"]:
-                    console.print(f"    - {loc}")
+                    console.print(f"    [dim]→[/dim] {loc}")
 
         if results["failed"]:
-            console.print("\n[red]Failed to rotate:[/red]")
+            console.print("\n[bold red]✗ Failed to rotate:[/bold red]")
             for item in results["failed"]:
-                console.print(f"  ✗ {item['name']}: {item['error']}")
+                console.print(
+                    f"  [red]•[/red] [cyan]{item['name']}[/cyan]: "
+                    f"[red]{item['error']}[/red]"
+                )
 
         if results["manual"]:
-            console.print("\n[yellow]Manual rotation required:[/yellow]")
+            console.print("\n[bold yellow]⚠ Manual rotation required:[/bold yellow]")
             for item in results["manual"]:
-                console.print(f"  ⚠ {item['name']}")
-                console.print(f"{item['instructions']}")
+                console.print(f"  [yellow]•[/yellow] [cyan]{item['name']}[/cyan]")
+                console.print(f"[dim]{item['instructions']}[/dim]")
 
     elif token_name:
         registry = backend.load_registry()
         token = registry.get_token(token_name)
 
         if not token:
-            console.print(f"[red]Token '{token_name}' not found[/red]")
+            console.print(f"[red]✗ Token not found:[/red] [cyan]{token_name}[/cyan]")
             return
 
         success, message, locations = orchestrator.rotate_token(token, dry_run)
 
         if success:
-            console.print(f"[green]✓[/green] {message}")
+            console.print(f"[green]✓ {message}[/green]")
             for loc in locations:
-                console.print(f"  - {loc}")
+                console.print(f"  [dim]→[/dim] {loc}")
         else:
-            console.print(f"[red]✗[/red] {message}")
+            console.print(f"[red]✗ {message}[/red]")
 
     else:
         console.print("[red]Specify --all or provide a token name[/red]")
@@ -170,16 +179,23 @@ def status(expiring: bool):
 
     tokens = registry.list_tokens()
     if not tokens:
-        console.print("[yellow]No tokens tracked yet[/yellow]")
+        console.print(
+            "[yellow]No tokens tracked yet. Use[/yellow] "
+            "[cyan]tokn track[/cyan] [yellow]to get started.[/yellow]"
+        )
         return
 
-    table = Table(title="Token Status")
-    table.add_column("Name", style="cyan")
+    table = Table(
+        title="[bold]Token Status[/bold]",
+        show_header=True,
+        header_style="bold"
+    )
+    table.add_column("Name", style="cyan", no_wrap=True)
     table.add_column("Service", style="magenta")
     table.add_column("Type", style="blue")
-    table.add_column("Status", style="green")
+    table.add_column("Status")
     table.add_column("Expires", style="yellow")
-    table.add_column("Last Rotated", style="white")
+    table.add_column("Last Rotated", style="dim")
 
     for token in tokens:
         if expiring and token.status == TokenStatus.ACTIVE:
@@ -233,10 +249,11 @@ def sync():
     backend = DopplerBackend()
     registry = backend.sync()
 
-    console.print(f"[green]✓[/green] Synced {len(registry.tokens)} tokens from Doppler")
+    console.print("[green]✓ Synced from Doppler[/green]")
+    console.print(f"  [cyan]Tokens:[/cyan] {len(registry.tokens)}")
     if registry.last_sync:
         sync_time = registry.last_sync.strftime('%Y-%m-%d %H:%M:%S')
-        console.print(f"[dim]Last sync: {sync_time}[/dim]")
+        console.print(f"  [cyan]Last sync:[/cyan] [dim]{sync_time}[/dim]")
 
 
 @cli.command()
@@ -248,9 +265,9 @@ def remove(name: str):
 
     if registry.remove_token(name):
         backend.save_registry(registry)
-        console.print(f"[green]✓[/green] Token '{name}' removed")
+        console.print(f"[green]✓ Token removed:[/green] [cyan]{name}[/cyan]")
     else:
-        console.print(f"[red]Token '{name}' not found[/red]")
+        console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
 
 
 @cli.command()
@@ -262,31 +279,43 @@ def info(name: str):
 
     token = registry.get_token(name)
     if not token:
-        console.print(f"[red]Token '{name}' not found[/red]")
+        console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
         return
 
     console.print(f"\n[bold cyan]{token.name}[/bold cyan]")
-    console.print(f"Service: {token.service}")
-    console.print(f"Rotation Type: {token.rotation_type.value}")
-    console.print(f"Status: {token.status.value}")
+    console.print(f"[cyan]Service:[/cyan] {token.service}")
+    console.print(f"[cyan]Rotation Type:[/cyan] {token.rotation_type.value}")
+
+    status_color = {
+        TokenStatus.ACTIVE: "green",
+        TokenStatus.EXPIRING_SOON: "yellow",
+        TokenStatus.EXPIRED: "red"
+    }
+    status_style = status_color[token.status]
+    console.print(
+        f"[cyan]Status:[/cyan] [{status_style}]{token.status.value}[/{status_style}]"
+    )
 
     if token.expires_at:
         expiry_date = token.expires_at.strftime('%Y-%m-%d')
-        console.print(f"Expires: {expiry_date} ({token.days_until_expiry} days)")
+        console.print(
+            f"[cyan]Expires:[/cyan] {expiry_date} "
+            f"[dim]({token.days_until_expiry} days)[/dim]"
+        )
 
     if token.last_rotated:
         last_rot = token.last_rotated.strftime('%Y-%m-%d %H:%M:%S')
-        console.print(f"Last Rotated: {last_rot}")
+        console.print(f"[cyan]Last Rotated:[/cyan] {last_rot}")
 
-    console.print("\nLocations:")
+    console.print("\n[cyan]Locations:[/cyan]")
     for loc in token.locations:
-        console.print(f"  - {loc.type}: {loc.path}")
+        console.print(f"  [green]•[/green] [magenta]{loc.type}[/magenta]: {loc.path}")
         if loc.metadata:
             for key, value in loc.metadata.items():
-                console.print(f"    {key}: {value}")
+                console.print(f"    [dim]{key}:[/dim] {value}")
 
     if token.notes:
-        console.print(f"\nNotes: {token.notes}")
+        console.print(f"\n[cyan]Notes:[/cyan] [dim]{token.notes}[/dim]")
 
 
 if __name__ == "__main__":

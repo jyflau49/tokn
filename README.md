@@ -68,7 +68,7 @@ tokn rotate --all --dry-run
 |---------|----------|-------------|-----------|
 | GitHub PAT | `github` | ✗ (manual) | Doppler, `~/.git-credentials` |
 | Cloudflare API Token | `cloudflare` | ✓ | Doppler |
-| Linode CLI Token | `linode-cli` | ✓ | Doppler, `~/.config/linode-cli` |
+| Linode CLI Token | `linode-cli` | ✓ | `~/.config/linode-cli` |
 | Linode Doppler Token | `linode-doppler` | ✓ | Doppler |
 | HCP Terraform Account | `terraform-account` | ✗ (OAuth) | `~/.terraform.d/credentials.tfrc.json` |
 | HCP Terraform Org | `terraform-org` | ✓ | Doppler |

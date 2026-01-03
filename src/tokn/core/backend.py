@@ -47,10 +47,10 @@ class DopplerBackend:
         registry.last_sync = datetime.now()
         data = registry.model_dump_json(indent=2)
 
-        self._run_doppler([
-            "set",
-            f"{self.METADATA_SECRET}={data}"
-        ])
+        cmd = ["doppler", "secrets", "set", self.METADATA_SECRET,
+               "--project", self.project,
+               "--config", self.config]
+        subprocess.run(cmd, input=data, text=True, check=True, capture_output=True)
 
     def sync(self) -> TokenRegistry:
         return self.load_registry()
@@ -80,14 +80,13 @@ class DopplerBackend:
         project: str | None = None,
         config: str | None = None,
     ) -> None:
-        args = ["set", f"{name}={value}"]
+        cmd = ["doppler", "secrets", "set", name]
         if project:
-            args.extend(["--project", project])
+            cmd.extend(["--project", project])
         if config:
-            args.extend(["--config", config])
+            cmd.extend(["--config", config])
 
-        cmd = ["doppler", "secrets"] + args
-        subprocess.run(cmd, check=True, capture_output=True)
+        subprocess.run(cmd, input=value, text=True, check=True, capture_output=True)
 
     def _check_doppler_cli(self) -> None:
         """Check if Doppler CLI is available."""

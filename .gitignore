@@ -30,3 +30,6 @@ htmlcov/
 
 # Ruff
 .ruff_cache
+
+# Personal Documentation
+MANUAL_TESTING.md

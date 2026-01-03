@@ -206,6 +206,10 @@ class RotationOrchestrator:
             kwargs["note"] = f"tokn-{token_metadata.name}"
         elif token_metadata.service == "cloudflare":
             kwargs["name"] = f"tokn-{token_metadata.name}"
+            for location in token_metadata.locations:
+                if "account_id" in location.metadata:
+                    kwargs["account_id"] = location.metadata["account_id"]
+                    break
         elif token_metadata.service in ["linode-cli", "linode-doppler"]:
             kwargs["label"] = f"tokn-{token_metadata.name}"
         elif token_metadata.service == "terraform-org":

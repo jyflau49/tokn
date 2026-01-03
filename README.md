@@ -1,6 +1,6 @@
 # tokn
 
-CLI tool for automated monthly API token rotation across multiple services.
+CLI tool for automated API token rotation across multiple services.
 
 ## Features
 
@@ -92,9 +92,12 @@ tokn track <name> \
 
 **Location formats:**
 - Doppler: `doppler:SECRET_NAME:project=proj,config=cfg`
+- Doppler (Cloudflare): `doppler:SECRET_NAME:project=proj,config=cfg,account_id=abc123`
 - Git credentials: `git-credentials:~/.git-credentials:username=git`
 - Linode CLI: `linode-cli:~/.config/linode-cli`
 - Terraform: `terraform-credentials:~/.terraform.d/credentials.tfrc.json:hostname=app.terraform.io`
+
+**Note:** Cloudflare tokens require `account_id` in location metadata for rotation.
 
 ### `tokn status`
 
@@ -148,7 +151,7 @@ tokn track github-pat --service github --rotation-type manual \
   --location "git-credentials:~/.git-credentials:username=git"
 
 tokn track cloudflare-token --service cloudflare --rotation-type auto \
-  --location "doppler:CLOUDFLARE_API_TOKEN:project=magictracker,config=prod"
+  --location "doppler:CLOUDFLARE_API_TOKEN:project=magictracker,config=prod,account_id=abc123def456"
 
 tokn track linode-cli --service linode-cli --rotation-type auto \
   --location "doppler:LINODE_CLI_TOKEN:project=my-infra,config=dev" \

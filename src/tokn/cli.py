@@ -17,7 +17,7 @@ console = Console()
 @click.group()
 @click.version_option(version=__version__)
 def cli():
-    """tokn - Automated monthly API token rotation."""
+    """tokn - Automated API token rotation."""
     pass
 
 

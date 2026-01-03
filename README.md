@@ -202,12 +202,11 @@ tokn/
 
 ## Security
 
-- **No token storage** - Tokens read from Doppler/files on-demand
-- **Metadata only** - Only expiry dates and rotation history stored
+- **Metadata only** - Token values never stored, read from Doppler/files on-demand
 - **Secure file permissions** - All credential files created with `0600` (owner-only)
-- **In-memory backups** - No plaintext tokens written to disk during rollback
-- **Atomic operations** - Rollback on partial failures
-- **No logging** - Tokens never printed to console or logs
+- **In-memory backups** - Rollback uses memory, no plaintext written to disk
+- **All-or-nothing rotation** - Automatic rollback if any location update fails
+- **No token logging** - Token values never printed to console or logs
 
 See `docs/EXPLAIN.md` for detailed security architecture.
 

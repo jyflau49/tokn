@@ -1,10 +1,10 @@
 # tokn - Architectural Decisions and Design Rationale
 
-*Modified: 2026-01-03 (v0.1.0)*
+*Modified: 2026-01-03 (v0.2.0)*
 
 ## Overview
 
-`tokn` is a CLI tool for automated monthly API token rotation across multiple services. This document explains the major architectural decisions, security considerations, and trade-offs made during development.
+`tokn` is a CLI tool for automated API token rotation across multiple services. This document explains the major architectural decisions, security considerations, and trade-offs made during development.
 
 ---
 
@@ -200,31 +200,97 @@ def rotate_token(self, token_metadata: TokenMetadata) -> tuple[bool, str, list[s
 
 **Context:** Cloudflare has two types of API tokens: User API Tokens and Account API Tokens. Account tokens require `account_id` in API paths. Initial implementation used create/delete approach which created sub-tokens that lost token management permissions.
 
-**Decision:** Use the Roll Token endpoint (`PUT /accounts/{account_id}/tokens/{token_id}/value`) to regenerate token value in-place.
+**Decision:** Use the Roll Token endpoint to regenerate token value, then Update Token endpoint to set new expiry.
 
 **Rationale:**
 - Roll endpoint regenerates token value without creating a sub-token
 - All permissions are preserved (including token management)
-- Simpler implementation: verify → roll (2 API calls vs 3+)
+- Update endpoint allows setting new expiry (90 days by default)
 - Supports continuous rotation without manual intervention
 
 **Trade-offs:**
-- **Sacrificed:** Nothing - this is strictly better than create/delete approach
-- **Gained:** Full permission preservation, simpler code, continuous rotation capability
+- **Sacrificed:** One extra API call for expiry update
+- **Gained:** Full permission preservation, consistent 90-day expiry across all providers
 
 **Implementation:**
 ```python
-def _roll_token(self, client, current_token, account_id, token_id) -> str:
-    response = client.put(
-        f"{self.API_BASE}/accounts/{account_id}/tokens/{token_id}/value",
-        headers={
-            "Authorization": f"Bearer {current_token}",
-            "Content-Type": "application/json"
-        },
-        json={}
-    )
-    response.raise_for_status()
-    return response.json()["result"]  # New token value
+# 1. Roll token to get new value
+new_token = self._roll_token(client, current_token, account_id, token_id)
+
+# 2. Update expiry (using new token for auth)
+self._update_token_expiry(client, new_token, account_id, token_id, token_details, 90)
+```
+
+---
+
+### 8. Standardized 90-Day Token Expiry
+
+**Date:** 2026-01-03
+
+**Context:** Different providers had different default expiry periods (Linode: 30 days, Cloudflare: preserved original).
+
+**Decision:** Standardize all token expiry to 90 days after rotation.
+
+**Rationale:**
+- Consistent behavior across all providers
+- 90 days balances security (regular rotation) with convenience (quarterly)
+- Aligns with common enterprise security policies
+
+**Trade-offs:**
+- **Sacrificed:** Flexibility of per-provider expiry defaults
+- **Gained:** Predictable expiry behavior, simpler mental model
+
+---
+
+### 9. Removed Terraform Org Provider
+
+**Date:** 2026-01-03
+
+**Context:** No official Doppler-TFC integration API found. TFC Org token rotation would require undocumented or unsupported API usage.
+
+**Decision:** Remove TFC Org provider entirely. Out of scope for this project.
+
+**Rationale:**
+- Cannot reliably implement without official API support
+- Better to not support than to provide broken functionality
+- Users can still use `terraform-account` with manual OAuth flow
+
+---
+
+### 10. Removed Dry-Run Feature
+
+**Date:** 2026-01-03
+
+**Context:** Dry-run showed minimal information ("would rotate token") and didn't provide meaningful preview.
+
+**Decision:** Remove dry-run. Use `tokn status` to see what would be rotated.
+
+**Rationale:**
+- Token rotation is atomic (success or rollback)
+- `tokn status` already shows expiring tokens
+- Modern secret rotation tools (AWS Secrets Manager, etc.) don't typically offer dry-run
+- Simplifies codebase
+
+---
+
+### 11. Token Update Command
+
+**Date:** 2026-01-03
+
+**Context:** Users needed to fix typos in locations or update expiry after manual rotation.
+
+**Decision:** Add `tokn update` command for modifying tracked token metadata.
+
+**Rationale:**
+- Allows fixing location typos without re-tracking
+- Enables manual expiry updates after manual rotation
+- Supports adding/removing locations incrementally
+
+**Usage:**
+```bash
+tokn update <name> --expiry-days 90
+tokn update <name> --add-location "doppler:NEW_SECRET:project=proj,config=cfg"
+tokn update <name> --remove-location "doppler:OLD_SECRET"
 ```
 
 ---
@@ -320,6 +386,6 @@ def _roll_token(self, client, current_token, account_id, token_id) -> str:
 
 - [Doppler CLI Documentation](https://docs.doppler.com/docs/cli)
 - [GitHub Fine-grained PATs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
-- [Cloudflare API Tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
+- [Cloudflare Roll Token API](https://developers.cloudflare.com/api/resources/accounts/subresources/tokens/subresources/value/methods/update/)
 - [Linode API](https://www.linode.com/docs/api/)
 - [Terraform Cloud API](https://developer.hashicorp.com/terraform/cloud-docs/api-docs)

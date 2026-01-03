@@ -19,20 +19,16 @@ class LinodeProvider(TokenProvider):
         return True
 
     def rotate(self, current_token: str, **kwargs) -> RotationResult:
-        date_str = datetime.now().strftime('%Y%m%d')
+        date_str = datetime.now().strftime("%Y%m%d")
         default_label = f"tokn-{self.token_type.lower()}-{date_str}"
         label = kwargs.get("label", default_label)
         scopes = kwargs.get("scopes", "*")
-        expiry_days = kwargs.get("expiry_days", 30)
+        expiry_days = kwargs.get("expiry_days", 90)
 
         try:
             with httpx.Client() as client:
                 new_token = self._create_token(
-                    client,
-                    current_token,
-                    label,
-                    scopes,
-                    expiry_days
+                    client, current_token, label, scopes, expiry_days
                 )
 
                 old_token_id = self._get_current_token_id(client, current_token)
@@ -48,7 +44,7 @@ class LinodeProvider(TokenProvider):
         try:
             response = client.get(
                 f"{self.API_BASE}/profile/tokens",
-                headers={"Authorization": f"Bearer {token}"}
+                headers={"Authorization": f"Bearer {token}"},
             )
             response.raise_for_status()
 
@@ -66,7 +62,7 @@ class LinodeProvider(TokenProvider):
         current_token: str,
         label: str,
         scopes: str,
-        expiry_days: int
+        expiry_days: int,
     ) -> str:
         expiry_date = datetime.now() + timedelta(days=expiry_days)
         expiry = expiry_date.strftime("%Y-%m-%dT%H:%M:%S")
@@ -75,13 +71,9 @@ class LinodeProvider(TokenProvider):
             f"{self.API_BASE}/profile/tokens",
             headers={
                 "Authorization": f"Bearer {current_token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            json={
-                "label": label,
-                "scopes": scopes,
-                "expiry": expiry
-            }
+            json={"label": label, "scopes": scopes, "expiry": expiry},
         )
         response.raise_for_status()
         return response.json()["token"]
@@ -89,5 +81,5 @@ class LinodeProvider(TokenProvider):
     def _revoke_token(self, client: httpx.Client, token: str, token_id: int) -> None:
         client.delete(
             f"{self.API_BASE}/profile/tokens/{token_id}",
-            headers={"Authorization": f"Bearer {token}"}
+            headers={"Authorization": f"Bearer {token}"},
         )

@@ -2,10 +2,14 @@
 
 Rotates Cloudflare Account API tokens using the Roll Token endpoint:
 1. Verify token to get its ID
-2. Roll token to generate new value (preserves all permissions)
+2. Get token details (name, policies)
+3. Roll token to generate new value
+4. Update token expiry to 90 days from now
 
 Requires account_id in location metadata for rotation.
 """
+
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -24,11 +28,12 @@ class CloudflareProvider(TokenProvider):
 
     def rotate(self, current_token: str, **kwargs) -> RotationResult:
         account_id = kwargs.get("account_id")
+        expiry_days = kwargs.get("expiry_days", 90)
 
         if not account_id:
             return RotationResult(
                 success=False,
-                error="account_id is required for Cloudflare token rotation"
+                error="account_id is required for Cloudflare token rotation",
             )
 
         try:
@@ -39,13 +44,27 @@ class CloudflareProvider(TokenProvider):
                 )
                 if not token_id:
                     return RotationResult(
+                        success=False, error=error_msg or "Could not retrieve token ID"
+                    )
+
+                # Get token details for update
+                token_details, error_msg = self._get_token_details(
+                    client, current_token, account_id, token_id
+                )
+                if not token_details:
+                    return RotationResult(
                         success=False,
-                        error=error_msg or "Could not retrieve token ID"
+                        error=error_msg or "Could not retrieve token details",
                     )
 
                 # Roll token to generate new value
                 new_token = self._roll_token(
                     client, current_token, account_id, token_id
+                )
+
+                # Update token expiry (use new token for auth)
+                self._update_token_expiry(
+                    client, new_token, account_id, token_id, token_details, expiry_days
                 )
 
                 return RotationResult(success=True, new_token=new_token)
@@ -60,7 +79,7 @@ class CloudflareProvider(TokenProvider):
                 pass
             return RotationResult(
                 success=False,
-                error=f"Cloudflare API error {e.response.status_code}{error_detail}"
+                error=f"Cloudflare API error {e.response.status_code}{error_detail}",
             )
         except Exception as e:
             return RotationResult(success=False, error=str(e))
@@ -76,8 +95,7 @@ class CloudflareProvider(TokenProvider):
         try:
             verify_url = f"{self.API_BASE}/accounts/{account_id}/tokens/verify"
             verify_resp = client.get(
-                verify_url,
-                headers={"Authorization": f"Bearer {token}"}
+                verify_url, headers={"Authorization": f"Bearer {token}"}
             )
             if verify_resp.status_code != 200:
                 try:
@@ -91,8 +109,7 @@ class CloudflareProvider(TokenProvider):
             if not verify_data.get("success"):
                 errors = verify_data.get("errors", [])
                 error_msg = (
-                    errors[0].get("message") if errors
-                    else "Token verification failed"
+                    errors[0].get("message") if errors else "Token verification failed"
                 )
                 return None, error_msg
 
@@ -104,24 +121,89 @@ class CloudflareProvider(TokenProvider):
         except Exception as e:
             return None, str(e)
 
-    def _roll_token(
-        self,
-        client: httpx.Client,
-        current_token: str,
-        account_id: str,
-        token_id: str
-    ) -> str:
-        """Roll token to generate new value (preserves all permissions).
+    def _get_token_details(
+        self, client: httpx.Client, token: str, account_id: str, token_id: str
+    ) -> tuple[dict | None, str | None]:
+        """Get token details (name, policies) for update."""
+        try:
+            response = client.get(
+                f"{self.API_BASE}/accounts/{account_id}/tokens/{token_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if response.status_code != 200:
+                try:
+                    err_data = response.json()
+                    err_msg = err_data.get("errors", [{}])[0].get("message", "")
+                    return None, f"Get token details failed: {err_msg}"
+                except Exception:
+                    status = response.status_code
+                    return None, f"Get token details failed: HTTP {status}"
 
-        Uses PUT /accounts/{account_id}/tokens/{token_id}/value endpoint.
-        """
+            data = response.json()
+            if not data.get("success"):
+                errors = data.get("errors", [])
+                error_msg = (
+                    errors[0].get("message")
+                    if errors
+                    else "Failed to get token details"
+                )
+                return None, error_msg
+
+            return data["result"], None
+        except Exception as e:
+            return None, str(e)
+
+    def _roll_token(
+        self, client: httpx.Client, current_token: str, account_id: str, token_id: str
+    ) -> str:
+        """Roll token to generate new value."""
         response = client.put(
             f"{self.API_BASE}/accounts/{account_id}/tokens/{token_id}/value",
             headers={
                 "Authorization": f"Bearer {current_token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            json={}
+            json={},
         )
         response.raise_for_status()
         return response.json()["result"]
+
+    def _update_token_expiry(
+        self,
+        client: httpx.Client,
+        token: str,
+        account_id: str,
+        token_id: str,
+        token_details: dict,
+        expiry_days: int,
+    ) -> None:
+        """Update token expiry date."""
+        new_expiry = datetime.now(UTC) + timedelta(days=expiry_days)
+        expiry_str = new_expiry.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # Build update payload from existing token details
+        policies = []
+        for policy in token_details.get("policies", []):
+            clean_policy = {
+                "effect": policy.get("effect", "allow"),
+                "resources": policy.get("resources", {}),
+                "permission_groups": [
+                    {"id": pg["id"]} for pg in policy.get("permission_groups", [])
+                ],
+            }
+            policies.append(clean_policy)
+
+        response = client.put(
+            f"{self.API_BASE}/accounts/{account_id}/tokens/{token_id}",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "name": token_details.get("name", "tokn-rotated"),
+                "policies": policies,
+                "expires_on": expiry_str,
+                "status": "active",
+            },
+        )
+        response.raise_for_status()

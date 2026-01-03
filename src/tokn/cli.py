@@ -26,23 +26,24 @@ def cli():
 @click.option(
     "--service",
     required=True,
-    type=click.Choice([
-        "github",
-        "cloudflare",
-        "linode-cli",
-        "linode-doppler",
-        "terraform-account",
-        "terraform-org"
-    ]),
-    help="Service provider"
+    type=click.Choice(
+        [
+            "github",
+            "cloudflare",
+            "linode-cli",
+            "linode-doppler",
+            "terraform-account",
+        ]
+    ),
+    help="Service provider",
 )
 @click.option("--rotation-type", type=click.Choice(["auto", "manual"]), default="auto")
 @click.option(
     "--location",
     multiple=True,
-    help="Location in format 'type:path' (can specify multiple)"
+    help="Location in format 'type:path' (can specify multiple)",
 )
-@click.option("--expiry-days", type=int, default=30, help="Days until expiry")
+@click.option("--expiry-days", type=int, default=90, help="Days until expiry")
 @click.option("--notes", default="", help="Additional notes")
 def track(
     name: str,
@@ -89,7 +90,7 @@ def track(
         rotation_type=RotationType(rotation_type),
         locations=locations,
         expires_at=datetime.now() + timedelta(days=expiry_days),
-        notes=notes
+        notes=notes,
     )
 
     registry.add_token(token_metadata)
@@ -103,30 +104,17 @@ def track(
 
 @cli.command()
 @click.option(
-    "--all",
-    "rotate_all",
-    is_flag=True,
-    help="Rotate all auto-rotatable tokens"
+    "--all", "rotate_all", is_flag=True, help="Rotate all auto-rotatable tokens"
 )
 @click.option("--auto-only", is_flag=True, default=True, help="Skip manual tokens")
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be rotated without doing it"
-)
 @click.argument("token_name", required=False)
-def rotate(rotate_all: bool, auto_only: bool, dry_run: bool, token_name: str):
+def rotate(rotate_all: bool, auto_only: bool, token_name: str):
     """Rotate tokens."""
     orchestrator = RotationOrchestrator()
     backend = DopplerBackend()
 
-    if dry_run:
-        console.print(
-            "[bold yellow]DRY RUN MODE[/bold yellow] - No changes will be made\n"
-        )
-
     if rotate_all:
-        results = orchestrator.rotate_all(auto_only=auto_only, dry_run=dry_run)
+        results = orchestrator.rotate_all(auto_only=auto_only)
 
         if results["success"]:
             console.print("[bold green]✓ Successfully rotated:[/bold green]")
@@ -157,7 +145,7 @@ def rotate(rotate_all: bool, auto_only: bool, dry_run: bool, token_name: str):
             console.print(f"[red]✗ Token not found:[/red] [cyan]{token_name}[/cyan]")
             return
 
-        success, message, locations = orchestrator.rotate_token(token, dry_run)
+        success, message, locations = orchestrator.rotate_token(token)
 
         if success:
             console.print(f"[green]✓ {message}[/green]")
@@ -186,9 +174,7 @@ def status(expiring: bool):
         return
 
     table = Table(
-        title="[bold]Token Status[/bold]",
-        show_header=True,
-        header_style="bold"
+        title="[bold]Token Status[/bold]", show_header=True, header_style="bold"
     )
     table.add_column("Name", style="cyan", no_wrap=True)
     table.add_column("Service", style="magenta")
@@ -204,13 +190,13 @@ def status(expiring: bool):
         status_emoji = {
             TokenStatus.ACTIVE: "✓",
             TokenStatus.EXPIRING_SOON: "⚠",
-            TokenStatus.EXPIRED: "✗"
+            TokenStatus.EXPIRED: "✗",
         }
 
         status_color = {
             TokenStatus.ACTIVE: "green",
             TokenStatus.EXPIRING_SOON: "yellow",
-            TokenStatus.EXPIRED: "red"
+            TokenStatus.EXPIRED: "red",
         }
 
         expiry_str = "N/A"
@@ -233,13 +219,13 @@ def status(expiring: bool):
                 f"[/{status_color[token.status]}]"
             ),
             expiry_str,
-            last_rotated_str
+            last_rotated_str,
         )
 
     console.print(table)
 
     if registry.last_sync:
-        sync_time = registry.last_sync.strftime('%Y-%m-%d %H:%M:%S')
+        sync_time = registry.last_sync.strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"\n[dim]Last sync: {sync_time}[/dim]")
 
 
@@ -252,7 +238,7 @@ def sync():
     console.print("[green]✓ Synced from Doppler[/green]")
     console.print(f"  [cyan]Tokens:[/cyan] {len(registry.tokens)}")
     if registry.last_sync:
-        sync_time = registry.last_sync.strftime('%Y-%m-%d %H:%M:%S')
+        sync_time = registry.last_sync.strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"  [cyan]Last sync:[/cyan] [dim]{sync_time}[/dim]")
 
 
@@ -268,6 +254,112 @@ def remove(name: str):
         console.print(f"[green]✓ Token removed:[/green] [cyan]{name}[/cyan]")
     else:
         console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
+
+
+@cli.command()
+@click.argument("name")
+@click.option("--expiry-days", type=int, help="Update days until expiry")
+@click.option(
+    "--location",
+    multiple=True,
+    help="Replace locations (use multiple times for multiple locations)",
+)
+@click.option("--add-location", help="Add a new location")
+@click.option("--remove-location", help="Remove a location by type:path")
+@click.option("--notes", help="Update notes")
+def update(
+    name: str,
+    expiry_days: int | None,
+    location: tuple,
+    add_location: str | None,
+    remove_location: str | None,
+    notes: str | None,
+):
+    """Update a tracked token's metadata."""
+    backend = DopplerBackend()
+    registry = backend.load_registry()
+
+    token = registry.get_token(name)
+    if not token:
+        console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
+        return
+
+    changes_made = []
+
+    # Update expiry
+    if expiry_days is not None:
+        token.expires_at = datetime.now() + timedelta(days=expiry_days)
+        changes_made.append(f"expiry set to {expiry_days} days")
+
+    # Replace all locations
+    if location:
+        new_locations = []
+        for loc in location:
+            if ":" not in loc:
+                console.print(f"[red]Invalid location format: {loc}[/red]")
+                return
+            parts = loc.split(":", 2)
+            loc_type = parts[0]
+            loc_path = parts[1]
+            metadata = {}
+            if len(parts) == 3:
+                for pair in parts[2].split(","):
+                    if "=" in pair:
+                        key, value = pair.split("=", 1)
+                        metadata[key.strip()] = value.strip()
+            new_locations.append(
+                TokenLocation(type=loc_type, path=loc_path, metadata=metadata)
+            )
+        token.locations = new_locations
+        changes_made.append(f"locations replaced ({len(new_locations)} total)")
+
+    # Add a location
+    if add_location:
+        if ":" not in add_location:
+            console.print(f"[red]Invalid location format: {add_location}[/red]")
+            return
+        parts = add_location.split(":", 2)
+        loc_type = parts[0]
+        loc_path = parts[1]
+        metadata = {}
+        if len(parts) == 3:
+            for pair in parts[2].split(","):
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
+                    metadata[key.strip()] = value.strip()
+        token.locations.append(
+            TokenLocation(type=loc_type, path=loc_path, metadata=metadata)
+        )
+        changes_made.append(f"added location {loc_type}:{loc_path}")
+
+    # Remove a location
+    if remove_location:
+        original_count = len(token.locations)
+        token.locations = [
+            loc
+            for loc in token.locations
+            if f"{loc.type}:{loc.path}" != remove_location
+        ]
+        if len(token.locations) < original_count:
+            changes_made.append(f"removed location {remove_location}")
+        else:
+            console.print(f"[yellow]Location not found: {remove_location}[/yellow]")
+
+    # Update notes
+    if notes is not None:
+        token.notes = notes
+        changes_made.append("notes updated")
+
+    if not changes_made:
+        console.print("[yellow]No changes specified. Use --help for options.[/yellow]")
+        return
+
+    registry.add_token(token)
+    backend.save_registry(registry)
+
+    console.print(f"[green]✓ Token updated:[/green] [cyan]{name}[/cyan]")
+    for change in changes_made:
+        console.print(f"  [dim]→[/dim] {change}")
 
 
 @cli.command()
@@ -289,7 +381,7 @@ def info(name: str):
     status_color = {
         TokenStatus.ACTIVE: "green",
         TokenStatus.EXPIRING_SOON: "yellow",
-        TokenStatus.EXPIRED: "red"
+        TokenStatus.EXPIRED: "red",
     }
     status_style = status_color[token.status]
     console.print(
@@ -297,14 +389,14 @@ def info(name: str):
     )
 
     if token.expires_at:
-        expiry_date = token.expires_at.strftime('%Y-%m-%d')
+        expiry_date = token.expires_at.strftime("%Y-%m-%d")
         console.print(
             f"[cyan]Expires:[/cyan] {expiry_date} "
             f"[dim]({token.days_until_expiry} days)[/dim]"
         )
 
     if token.last_rotated:
-        last_rot = token.last_rotated.strftime('%Y-%m-%d %H:%M:%S')
+        last_rot = token.last_rotated.strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"[cyan]Last Rotated:[/cyan] {last_rot}")
 
     console.print("\n[cyan]Locations:[/cyan]")

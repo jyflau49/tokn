@@ -4,11 +4,12 @@ CLI tool for automated API token rotation across multiple services.
 
 ## Features
 
-- **Automated rotation** for 3 services (Cloudflare, Linode×2, Terraform Org)
-- **Guided manual rotation** for 3 services (GitHub, Terraform Account)
+- **Automated rotation** for 3 services (Cloudflare, Linode CLI, Linode Doppler)
+- **Guided manual rotation** for 2 services (GitHub, Terraform Account)
 - **Multi-location updates** (Doppler + local files)
 - **Multi-laptop sync** via Doppler backend
 - **Batch rotation** with atomic rollback
+- **Token metadata updates** via `tokn update` command
 - **Rich terminal UI** with status tracking
 
 ## Installation
@@ -71,11 +72,12 @@ tokn rotate --all --dry-run
 | Linode CLI Token | `linode-cli` | ✓ | `~/.config/linode-cli` |
 | Linode Doppler Token | `linode-doppler` | ✓ | Doppler |
 | HCP Terraform Account | `terraform-account` | ✗ (OAuth) | `~/.terraform.d/credentials.tfrc.json` |
-| HCP Terraform Org | `terraform-org` | ✓ | Doppler |
 
 **Notes:**
 - GitHub PATs cannot be programmatically rotated without an OAuth App. The tool provides guided manual rotation instructions.
-- Cloudflare tokens require `account_id` in location metadata. Uses the Roll Token API to regenerate token value while preserving all permissions.
+- Cloudflare tokens require `account_id` in location metadata. Rotation rolls the token value and updates expiry to 90 days.
+- Linode tokens are created with 90-day expiry on rotation.
+- You can specify multiple `--location` flags to update the same token in different Doppler configs or local files.
 
 ## Commands
 
@@ -88,7 +90,7 @@ tokn track <name> \
   --service <provider> \
   --rotation-type [auto|manual] \
   --location "type:path:key=value" \
-  --expiry-days 30 \
+  --expiry-days 90 \
   --notes "Optional notes"
 ```
 
@@ -116,7 +118,6 @@ Rotate tokens.
 
 ```bash
 tokn rotate --all              # Rotate all auto tokens
-tokn rotate --all --dry-run    # Preview changes
 tokn rotate <name>             # Rotate specific token
 ```
 
@@ -126,6 +127,17 @@ Sync metadata from Doppler (for multi-laptop workflow).
 
 ```bash
 tokn sync
+```
+
+### `tokn update`
+
+Update a tracked token's metadata (expiry, locations, notes).
+
+```bash
+tokn update <name> --expiry-days 90           # Update expiry
+tokn update <name> --add-location "doppler:NEW_SECRET:project=proj,config=cfg"
+tokn update <name> --remove-location "doppler:OLD_SECRET"
+tokn update <name> --notes "Updated notes"
 ```
 
 ### `tokn info`
@@ -147,7 +159,7 @@ tokn remove <name>
 ## Example Workflow
 
 ```bash
-# Track all 6 tokens (one-time setup)
+# Track all 5 tokens (one-time setup)
 tokn track github-pat --service github --rotation-type manual \
   --location "doppler:GITHUB_TOKEN:project=my-infra,config=dev" \
   --location "git-credentials:~/.git-credentials:username=git"
@@ -156,7 +168,6 @@ tokn track cloudflare-token --service cloudflare --rotation-type auto \
   --location "doppler:CLOUDFLARE_API_TOKEN:project=magictracker,config=prod,account_id=abc123def456"
 
 tokn track linode-cli --service linode-cli --rotation-type auto \
-  --location "doppler:LINODE_CLI_TOKEN:project=my-infra,config=dev" \
   --location "linode-cli:~/.config/linode-cli"
 
 tokn track linode-doppler --service linode-doppler --rotation-type auto \
@@ -164,9 +175,6 @@ tokn track linode-doppler --service linode-doppler --rotation-type auto \
 
 tokn track terraform-account --service terraform-account --rotation-type manual \
   --location "terraform-credentials:~/.terraform.d/credentials.tfrc.json"
-
-tokn track terraform-org --service terraform-org --rotation-type auto \
-  --location "doppler:TF_CLOUD_TOKEN:project=personal,config=dev:org_name=magictracker-org"
 
 # Monthly rotation (1st of month)
 tokn rotate --all

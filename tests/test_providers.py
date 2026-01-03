@@ -1,9 +1,8 @@
 """Tests for provider plugins."""
 
-
 from tokn.providers.base import RotationResult
 from tokn.providers.github import GitHubProvider
-from tokn.providers.terraform import TerraformAccountProvider, TerraformOrgProvider
+from tokn.providers.terraform import TerraformAccountProvider
 
 
 class TestGitHubProvider:
@@ -42,21 +41,6 @@ class TestTerraformAccountProvider:
 
         assert "terraform login" in instructions
         assert "credentials.tfrc.json" in instructions
-
-
-class TestTerraformOrgProvider:
-    def test_supports_auto_rotation(self):
-        """Terraform org tokens can be auto-rotated."""
-        provider = TerraformOrgProvider()
-        assert provider.supports_auto_rotation is True
-
-    def test_rotate_requires_org_name(self):
-        """Verify org_name is required for rotation."""
-        provider = TerraformOrgProvider()
-        result = provider.rotate("dummy_token")
-
-        assert result.success is False
-        assert "org_name required" in result.error
 
 
 class TestRotationResult:

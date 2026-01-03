@@ -19,7 +19,7 @@ from tokn.providers.base import TokenProvider
 from tokn.providers.cloudflare import CloudflareProvider
 from tokn.providers.github import GitHubProvider
 from tokn.providers.linode import LinodeProvider
-from tokn.providers.terraform import TerraformAccountProvider, TerraformOrgProvider
+from tokn.providers.terraform import TerraformAccountProvider
 
 
 class RotationOrchestrator:
@@ -31,7 +31,6 @@ class RotationOrchestrator:
             "linode-cli": LinodeProvider("CLI"),
             "linode-doppler": LinodeProvider("Doppler"),
             "terraform-account": TerraformAccountProvider(),
-            "terraform-org": TerraformOrgProvider(),
         }
         self.location_handlers: dict[str, LocationHandler] = {
             "doppler": DopplerLocationHandler(),
@@ -43,7 +42,6 @@ class RotationOrchestrator:
     def rotate_token(
         self,
         token_metadata: TokenMetadata,
-        dry_run: bool = False
     ) -> tuple[bool, str, list[str]]:
         provider = self.providers.get(token_metadata.service)
         if not provider:
@@ -71,9 +69,6 @@ class RotationOrchestrator:
                 if backup:
                     backups[f"{location.type}:{location.path}"] = backup
 
-            if dry_run:
-                return True, "Dry run - would rotate token", []
-
             rotation_kwargs = self._get_rotation_kwargs(token_metadata)
             result = provider.rotate(current_token, **rotation_kwargs)
 
@@ -85,10 +80,7 @@ class RotationOrchestrator:
 
             for location in token_metadata.locations:
                 success = self._update_location(
-                    location.type,
-                    location.path,
-                    result.new_token,
-                    location.metadata
+                    location.type, location.path, result.new_token, location.metadata
                 )
                 if success:
                     updated_locations.append(f"{location.type}:{location.path}")
@@ -120,45 +112,31 @@ class RotationOrchestrator:
             self._rollback_all(backups)
             return False, f"Unexpected error: {str(e)}", []
 
-    def rotate_all(
-        self, auto_only: bool = True, dry_run: bool = False
-    ) -> dict[str, Any]:
+    def rotate_all(self, auto_only: bool = True) -> dict[str, Any]:
         registry = self.backend.load_registry()
-        results = {
-            "success": [],
-            "failed": [],
-            "manual": [],
-            "skipped": []
-        }
+        results = {"success": [], "failed": [], "manual": [], "skipped": []}
 
         for token in registry.list_tokens():
             if auto_only and token.rotation_type == RotationType.MANUAL:
                 instructions = self.providers[token.service].get_manual_instructions()
-                results["manual"].append({
-                    "name": token.name,
-                    "instructions": instructions
-                })
+                results["manual"].append(
+                    {"name": token.name, "instructions": instructions}
+                )
                 continue
 
-            success, message, locations = self.rotate_token(token, dry_run)
+            success, message, locations = self.rotate_token(token)
 
             if success:
-                results["success"].append({
-                    "name": token.name,
-                    "message": message,
-                    "locations": locations
-                })
+                results["success"].append(
+                    {"name": token.name, "message": message, "locations": locations}
+                )
             else:
                 if "does not support auto-rotation" in message:
-                    results["manual"].append({
-                        "name": token.name,
-                        "instructions": message
-                    })
+                    results["manual"].append(
+                        {"name": token.name, "instructions": message}
+                    )
                 else:
-                    results["failed"].append({
-                        "name": token.name,
-                        "error": message
-                    })
+                    results["failed"].append({"name": token.name, "error": message})
 
         return results
 
@@ -180,11 +158,7 @@ class RotationOrchestrator:
         return None
 
     def _update_location(
-        self,
-        location_type: str,
-        path: str,
-        token: str,
-        metadata: dict
+        self, location_type: str, path: str, token: str, metadata: dict
     ) -> bool:
         handler = self.location_handlers.get(location_type)
         if handler:
@@ -212,10 +186,5 @@ class RotationOrchestrator:
                     break
         elif token_metadata.service in ["linode-cli", "linode-doppler"]:
             kwargs["label"] = f"tokn-{token_metadata.name}"
-        elif token_metadata.service == "terraform-org":
-            for location in token_metadata.locations:
-                if "org_name" in location.metadata:
-                    kwargs["org_name"] = location.metadata["org_name"]
-                    break
 
         return kwargs

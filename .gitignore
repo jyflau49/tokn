@@ -19,6 +19,7 @@ wheels/
 htmlcov/
 
 # Backups
+.tokn-backup
 *.txt
 
 # Local config
@@ -32,4 +33,4 @@ htmlcov/
 .ruff_cache
 
 # Personal Documentation
-MANUAL_TESTING.md
+MY*.md

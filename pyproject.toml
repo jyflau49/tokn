@@ -1,7 +1,7 @@
 [project]
 name = "tokn"
-version = "0.1.0"
-description = "CLI tool for automated monthly API token rotation across multiple services"
+version = "0.2.0"
+description = "CLI tool for automated API token rotation across multiple services"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "John" }]

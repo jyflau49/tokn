@@ -73,7 +73,9 @@ tokn rotate --all --dry-run
 | HCP Terraform Account | `terraform-account` | ✗ (OAuth) | `~/.terraform.d/credentials.tfrc.json` |
 | HCP Terraform Org | `terraform-org` | ✓ | Doppler |
 
-**Note:** GitHub PATs cannot be programmatically rotated without an OAuth App. The tool provides guided manual rotation instructions.
+**Notes:**
+- GitHub PATs cannot be programmatically rotated without an OAuth App. The tool provides guided manual rotation instructions.
+- Cloudflare tokens require `account_id` in location metadata. Uses the Roll Token API to regenerate token value while preserving all permissions.
 
 ## Commands
 

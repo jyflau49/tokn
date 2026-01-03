@@ -1,6 +1,6 @@
 # tokn - Architectural Decisions and Design Rationale
 
-*Modified: 2026-01-03*
+*Modified: 2026-01-03 (v0.1.0)*
 
 ## Overview
 
@@ -194,22 +194,38 @@ def rotate_token(self, token_metadata: TokenMetadata) -> tuple[bool, str, list[s
 
 ---
 
-### 7. Cloudflare Policy Preservation
+### 7. Cloudflare Account API Token Rotation
 
 **Date:** 2026-01-03
 
-**Context:** Original implementation created new tokens without copying existing policies.
+**Context:** Cloudflare has two types of API tokens: User API Tokens and Account API Tokens. Account tokens require `account_id` in API paths. Initial implementation used create/delete approach which created sub-tokens that lost token management permissions.
 
-**Decision:** Fetch current token details, copy policies to new token.
+**Decision:** Use the Roll Token endpoint (`PUT /accounts/{account_id}/tokens/{token_id}/value`) to regenerate token value in-place.
 
 **Rationale:**
-- New token must have same permissions as old token
-- Cloudflare API requires explicit policy specification
-- Prevents accidental permission loss
+- Roll endpoint regenerates token value without creating a sub-token
+- All permissions are preserved (including token management)
+- Simpler implementation: verify → roll (2 API calls vs 3+)
+- Supports continuous rotation without manual intervention
 
 **Trade-offs:**
-- **Sacrificed:** One extra API call per rotation
-- **Gained:** Correct permissions, no manual policy reconfiguration
+- **Sacrificed:** Nothing - this is strictly better than create/delete approach
+- **Gained:** Full permission preservation, simpler code, continuous rotation capability
+
+**Implementation:**
+```python
+def _roll_token(self, client, current_token, account_id, token_id) -> str:
+    response = client.put(
+        f"{self.API_BASE}/accounts/{account_id}/tokens/{token_id}/value",
+        headers={
+            "Authorization": f"Bearer {current_token}",
+            "Content-Type": "application/json"
+        },
+        json={}
+    )
+    response.raise_for_status()
+    return response.json()["result"]  # New token value
+```
 
 ---
 

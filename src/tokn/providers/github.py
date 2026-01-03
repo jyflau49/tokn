@@ -56,15 +56,11 @@ class GitHubProvider(TokenProvider):
 Manual rotation required for GitHub PAT:
 
 1. Go to: https://github.com/settings/tokens
-2. Click "Generate new token" (fine-grained recommended)
-3. Set expiration to 30 days
+2. Click "Generate new token" or "Regenerate token"
+3. Set expiration eg, 30 days
 4. Select required permissions (repo, etc.)
 5. Generate and copy the new token
 6. Update in Doppler: doppler secrets set GITHUB_TOKEN=<new_token>
-7. Update ~/.git-credentials manually or run:
-   git credential reject <<EOF
-   protocol=https
-   host=github.com
-   EOF
+7. Update ~/.git-credentials manually
 8. Run: tokn sync to update metadata
 """

@@ -68,11 +68,14 @@ class LinodeProvider(TokenProvider):
         scopes: str,
         expiry_days: int
     ) -> str:
-        expiry = (datetime.now() + timedelta(days=expiry_days)).isoformat()
+        expiry = (datetime.now() + timedelta(days=expiry_days)).strftime("%Y-%m-%dT%H:%M:%S")
 
         response = client.post(
             f"{self.API_BASE}/profile/tokens",
-            headers={"Authorization": f"Bearer {current_token}"},
+            headers={
+                "Authorization": f"Bearer {current_token}",
+                "Content-Type": "application/json"
+            },
             json={
                 "label": label,
                 "scopes": scopes,

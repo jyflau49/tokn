@@ -36,14 +36,13 @@ class TokenMetadata(BaseModel):
 
     @property
     def status(self) -> TokenStatus:
-        if not self.expires_at:
+        days = self.days_until_expiry
+        if days is None:
             return TokenStatus.ACTIVE
 
-        days_until_expiry = (self.expires_at - datetime.now()).days
-
-        if days_until_expiry < 0:
+        if days < 0:
             return TokenStatus.EXPIRED
-        elif days_until_expiry <= 7:
+        elif days <= 7:
             return TokenStatus.EXPIRING_SOON
         return TokenStatus.ACTIVE
 
@@ -51,7 +50,13 @@ class TokenMetadata(BaseModel):
     def days_until_expiry(self) -> int | None:
         if not self.expires_at:
             return None
-        return (self.expires_at - datetime.now()).days
+        # Handle both timezone-aware and naive datetimes
+        now = datetime.now()
+        expires = self.expires_at
+        # If expires_at is timezone-aware, make now timezone-aware too
+        if expires.tzinfo is not None:
+            now = now.replace(tzinfo=expires.tzinfo)
+        return (expires - now).days
 
 
 class TokenRegistry(BaseModel):

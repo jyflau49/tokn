@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-*Modified: 2026-01-03*
+*Modified: 2026-01-04*
 
 ## Common Issues
 
@@ -28,7 +28,7 @@
 ### Token Already Exists
 
 **Solution:**
-1. Check: `tokn info <name>`
+1. Check: `tokn describe <name>`
 2. Remove if needed: `tokn remove <name>`
 3. Track again
 
@@ -82,7 +82,7 @@
 ### Check Token Metadata
 
 ```bash
-tokn info <token-name>
+tokn describe <token-name>
 ```
 
 Shows provider, rotation type, locations, expiry, last rotation, notes.
@@ -96,7 +96,7 @@ doppler secrets get TOKN_METADATA --project tokn --config dev --plain | jq
 ### Common Workflow Issues
 
 **Rotation succeeds but token doesn't work:**
-1. Verify new token written to all locations: `tokn info <name>`
+1. Verify new token written to all locations: `tokn describe <name>`
 2. Check file permissions: `ls -la ~/.git-credentials` (should be `-rw-------`)
 3. Test token manually with service API
 4. Check if service requires token format (e.g., `Bearer` prefix)

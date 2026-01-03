@@ -105,7 +105,7 @@ class TestTrackCommand:
                 ],
             )
 
-            assert result.exit_code == 0
+            assert result.exit_code == 1
             assert "already exists" in result.output
 
     def test_track_invalid_location_format(self):
@@ -131,7 +131,7 @@ class TestTrackCommand:
                 ],
             )
 
-            assert result.exit_code == 0
+            assert result.exit_code == 1
             assert "Invalid location format" in result.output
 
     def test_track_no_locations(self):
@@ -155,13 +155,13 @@ class TestTrackCommand:
                 ],
             )
 
-            assert result.exit_code == 0
+            assert result.exit_code == 1
             assert "At least one location is required" in result.output
 
 
-class TestStatusCommand:
-    def test_status_no_tokens(self):
-        """Test status with no tokens tracked."""
+class TestListCommand:
+    def test_list_no_tokens(self):
+        """Test list with no tokens tracked."""
         runner = CliRunner()
 
         with patch("tokn.cli.DopplerBackend") as mock_backend:
@@ -169,13 +169,13 @@ class TestStatusCommand:
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
 
-            result = runner.invoke(cli, ["status"])
+            result = runner.invoke(cli, ["list"])
 
             assert result.exit_code == 0
             assert "No tokens tracked" in result.output
 
-    def test_status_with_tokens(self):
-        """Test status displays tracked tokens."""
+    def test_list_with_tokens(self):
+        """Test list displays tracked tokens."""
         runner = CliRunner()
 
         token = TokenMetadata(
@@ -193,7 +193,7 @@ class TestStatusCommand:
             mock_instance.load_registry.return_value = registry
             mock_backend.return_value = mock_instance
 
-            result = runner.invoke(cli, ["status"])
+            result = runner.invoke(cli, ["list"])
 
             assert result.exit_code == 0
             assert "test-token" in result.output
@@ -236,13 +236,13 @@ class TestRemoveCommand:
 
             result = runner.invoke(cli, ["remove", "nonexistent"])
 
-            assert result.exit_code == 0
+            assert result.exit_code == 1
             assert "not found" in result.output
 
 
-class TestInfoCommand:
-    def test_info_existing_token(self):
-        """Test showing info for existing token."""
+class TestDescribeCommand:
+    def test_describe_existing_token(self):
+        """Test showing details for existing token."""
         runner = CliRunner()
 
         token = TokenMetadata(
@@ -267,7 +267,7 @@ class TestInfoCommand:
             mock_instance.load_registry.return_value = registry
             mock_backend.return_value = mock_instance
 
-            result = runner.invoke(cli, ["info", "test-token"])
+            result = runner.invoke(cli, ["describe", "test-token"])
 
             assert result.exit_code == 0
             assert "test-token" in result.output
@@ -275,8 +275,8 @@ class TestInfoCommand:
             assert "doppler" in result.output
             assert "Test notes" in result.output
 
-    def test_info_nonexistent_token(self):
-        """Test info for non-existent token."""
+    def test_describe_nonexistent_token(self):
+        """Test describe for non-existent token."""
         runner = CliRunner()
 
         with patch("tokn.cli.DopplerBackend") as mock_backend:
@@ -284,9 +284,9 @@ class TestInfoCommand:
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
 
-            result = runner.invoke(cli, ["info", "nonexistent"])
+            result = runner.invoke(cli, ["describe", "nonexistent"])
 
-            assert result.exit_code == 0
+            assert result.exit_code == 1
             assert "not found" in result.output
 
 

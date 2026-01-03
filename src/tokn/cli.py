@@ -1,17 +1,21 @@
 """CLI interface for tokn."""
 
+import sys
 from datetime import datetime, timedelta
 
 import click
 from rich.console import Console
 from rich.table import Table
+from tabulate import tabulate
 
 from tokn import __version__
 from tokn.core.backend import DopplerBackend
 from tokn.core.rotation import RotationOrchestrator
 from tokn.core.token import RotationType, TokenLocation, TokenMetadata, TokenStatus
+from tokn.utils.progress import progress_spinner
 
-console = Console()
+console = Console(stderr=True)
+stdout_console = Console()
 
 
 @click.group()
@@ -58,14 +62,14 @@ def track(
     registry = backend.load_registry()
 
     if registry.get_token(name):
-        console.print(f"[red]Token '{name}' already exists[/red]")
-        return
+        console.print(f"[red]Token '{name}' already exists[/red]", style="red")
+        sys.exit(1)
 
     locations = []
     for loc in location:
         if ":" not in loc:
             console.print(f"[red]Invalid location format: {loc}. Use 'type:path'[/red]")
-            return
+            sys.exit(1)
 
         parts = loc.split(":", 2)
         loc_type = parts[0]
@@ -82,7 +86,7 @@ def track(
 
     if not locations:
         console.print("[red]At least one location is required[/red]")
-        return
+        sys.exit(1)
 
     token_metadata = TokenMetadata(
         name=name,
@@ -96,10 +100,10 @@ def track(
     registry.add_token(token_metadata)
     backend.save_registry(registry)
 
-    console.print("[green]✓ Token tracked successfully[/green]")
-    console.print(f"  [cyan]Name:[/cyan] {name}")
-    console.print(f"  [cyan]Service:[/cyan] {service}")
-    console.print(f"  [cyan]Type:[/cyan] {rotation_type}")
+    stdout_console.print("[green]✓ Token tracked successfully[/green]")
+    stdout_console.print(f"  [cyan]Name:[/cyan] {name}")
+    stdout_console.print(f"  [cyan]Service:[/cyan] {service}")
+    stdout_console.print(f"  [cyan]Type:[/cyan] {rotation_type}")
 
 
 @cli.command()
@@ -114,14 +118,15 @@ def rotate(rotate_all: bool, auto_only: bool, token_name: str):
     backend = DopplerBackend()
 
     if rotate_all:
-        results = orchestrator.rotate_all(auto_only=auto_only)
+        with progress_spinner("Rotating tokens"):
+            results = orchestrator.rotate_all(auto_only=auto_only)
 
         if results["success"]:
-            console.print("[bold green]✓ Successfully rotated:[/bold green]")
+            stdout_console.print("[bold green]✓ Successfully rotated:[/bold green]")
             for item in results["success"]:
-                console.print(f"  [green]•[/green] [cyan]{item['name']}[/cyan]")
+                stdout_console.print(f"  [green]•[/green] [cyan]{item['name']}[/cyan]")
                 for loc in item["locations"]:
-                    console.print(f"    [dim]→[/dim] {loc}")
+                    stdout_console.print(f"    [dim]→[/dim] {loc}")
 
         if results["failed"]:
             console.print("\n[bold red]✗ Failed to rotate:[/bold red]")
@@ -132,10 +137,14 @@ def rotate(rotate_all: bool, auto_only: bool, token_name: str):
                 )
 
         if results["manual"]:
-            console.print("\n[bold yellow]⚠ Manual rotation required:[/bold yellow]")
+            stdout_console.print(
+                "\n[bold yellow]⚠ Manual rotation required:[/bold yellow]"
+            )
             for item in results["manual"]:
-                console.print(f"  [yellow]•[/yellow] [cyan]{item['name']}[/cyan]")
-                console.print(f"[dim]{item['instructions']}[/dim]")
+                stdout_console.print(
+                    f"  [yellow]•[/yellow] [cyan]{item['name']}[/cyan]"
+                )
+                stdout_console.print(f"[dim]{item['instructions']}[/dim]")
 
     elif token_name:
         registry = backend.load_registry()
@@ -143,25 +152,38 @@ def rotate(rotate_all: bool, auto_only: bool, token_name: str):
 
         if not token:
             console.print(f"[red]✗ Token not found:[/red] [cyan]{token_name}[/cyan]")
-            return
+            sys.exit(1)
 
-        success, message, locations = orchestrator.rotate_token(token)
+        # Type guard: token is guaranteed to be TokenMetadata here
+        assert token is not None
+
+        with progress_spinner(f"Rotating {token_name}", "~5s"):
+            success, message, locations = orchestrator.rotate_token(token)
 
         if success:
-            console.print(f"[green]✓ {message}[/green]")
+            stdout_console.print(f"[green]✓ {message}[/green]")
             for loc in locations:
-                console.print(f"  [dim]→[/dim] {loc}")
+                stdout_console.print(f"  [dim]→[/dim] {loc}")
         else:
             console.print(f"[red]✗ {message}[/red]")
+            sys.exit(1)
 
     else:
         console.print("[red]Specify --all or provide a token name[/red]")
+        sys.exit(1)
 
 
-@cli.command()
+@cli.command("list")
 @click.option("--expiring", is_flag=True, help="Show only expiring tokens")
-def status(expiring: bool):
-    """Show status of all tracked tokens."""
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["rich", "simple", "plain"]),
+    default="rich",
+    help="Output format (rich=styled, simple=tabulate, plain=no borders)",
+)
+def list_tokens(expiring: bool, output_format: str):
+    """List all tracked tokens."""
     backend = DopplerBackend()
     registry = backend.load_registry()
 
@@ -173,30 +195,17 @@ def status(expiring: bool):
         )
         return
 
-    table = Table(
-        title="[bold]Token Status[/bold]", show_header=True, header_style="bold"
-    )
-    table.add_column("Name", style="cyan", no_wrap=True)
-    table.add_column("Service", style="magenta")
-    table.add_column("Type", style="blue")
-    table.add_column("Status")
-    table.add_column("Expires", style="yellow")
-    table.add_column("Last Rotated", style="dim")
+    # Filter if --expiring
+    if expiring:
+        tokens = [t for t in tokens if t.status != TokenStatus.ACTIVE]
 
+    # Prepare data rows
+    rows = []
     for token in tokens:
-        if expiring and token.status == TokenStatus.ACTIVE:
-            continue
-
         status_emoji = {
             TokenStatus.ACTIVE: "✓",
             TokenStatus.EXPIRING_SOON: "⚠",
             TokenStatus.EXPIRED: "✗",
-        }
-
-        status_color = {
-            TokenStatus.ACTIVE: "green",
-            TokenStatus.EXPIRING_SOON: "yellow",
-            TokenStatus.EXPIRED: "red",
         }
 
         expiry_str = "N/A"
@@ -209,37 +218,95 @@ def status(expiring: bool):
         if token.last_rotated:
             last_rotated_str = token.last_rotated.strftime("%Y-%m-%d")
 
-        table.add_row(
-            token.name,
-            token.service,
-            token.rotation_type.value,
-            (
-                f"[{status_color[token.status]}]"
-                f"{status_emoji[token.status]} {token.status.value}"
-                f"[/{status_color[token.status]}]"
-            ),
-            expiry_str,
-            last_rotated_str,
+        rows.append(
+            {
+                "name": token.name,
+                "service": token.service,
+                "type": token.rotation_type.value,
+                "status": token.status.value,
+                "status_emoji": status_emoji[token.status],
+                "expires": expiry_str,
+                "last_rotated": last_rotated_str,
+            }
         )
 
-    console.print(table)
+    # Output based on format
+    if output_format == "rich":
+        _print_rich_table(rows, registry)
+    else:
+        tablefmt = "simple" if output_format == "simple" else "plain"
+        _print_tabulate_table(rows, tablefmt)
+        if registry.last_sync:
+            sync_time = registry.last_sync.strftime("%Y-%m-%d %H:%M:%S")
+            print(f"\nLast sync: {sync_time}")
+
+
+def _print_rich_table(rows: list, registry) -> None:
+    """Print tokens as rich styled table."""
+    status_color = {
+        "active": "green",
+        "expiring_soon": "yellow",
+        "expired": "red",
+    }
+
+    table = Table(
+        title="[bold]Token Status[/bold]", show_header=True, header_style="bold"
+    )
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Service", style="magenta")
+    table.add_column("Type", style="blue")
+    table.add_column("Status")
+    table.add_column("Expires", style="yellow")
+    table.add_column("Last Rotated", style="dim")
+
+    for row in rows:
+        color = status_color[row["status"]]
+        table.add_row(
+            row["name"],
+            row["service"],
+            row["type"],
+            f"[{color}]{row['status_emoji']} {row['status']}[/{color}]",
+            row["expires"],
+            row["last_rotated"],
+        )
+
+    stdout_console.print(table)
 
     if registry.last_sync:
         sync_time = registry.last_sync.strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"\n[dim]Last sync: {sync_time}[/dim]")
+        stdout_console.print(f"\n[dim]Last sync: {sync_time}[/dim]")
+
+
+def _print_tabulate_table(rows: list, tablefmt: str) -> None:
+    """Print tokens as tabulate table."""
+    table_data = [
+        [
+            row["name"],
+            row["service"],
+            row["type"],
+            f"{row['status_emoji']} {row['status']}",
+            row["expires"],
+            row["last_rotated"],
+        ]
+        for row in rows
+    ]
+    headers = ["Name", "Service", "Type", "Status", "Expires", "Last Rotated"]
+    print(tabulate(table_data, headers=headers, tablefmt=tablefmt))
 
 
 @cli.command()
 def sync():
     """Sync metadata from Doppler."""
     backend = DopplerBackend()
-    registry = backend.sync()
 
-    console.print("[green]✓ Synced from Doppler[/green]")
-    console.print(f"  [cyan]Tokens:[/cyan] {len(registry.tokens)}")
+    with progress_spinner("Syncing from Doppler"):
+        registry = backend.sync()
+
+    stdout_console.print("[green]✓ Synced from Doppler[/green]")
+    stdout_console.print(f"  [cyan]Tokens:[/cyan] {len(registry.tokens)}")
     if registry.last_sync:
         sync_time = registry.last_sync.strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"  [cyan]Last sync:[/cyan] [dim]{sync_time}[/dim]")
+        stdout_console.print(f"  [cyan]Last sync:[/cyan] [dim]{sync_time}[/dim]")
 
 
 @cli.command()
@@ -251,9 +318,10 @@ def remove(name: str):
 
     if registry.remove_token(name):
         backend.save_registry(registry)
-        console.print(f"[green]✓ Token removed:[/green] [cyan]{name}[/cyan]")
+        stdout_console.print(f"[green]✓ Token removed:[/green] [cyan]{name}[/cyan]")
     else:
         console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
+        sys.exit(1)
 
 
 @cli.command()
@@ -282,7 +350,10 @@ def update(
     token = registry.get_token(name)
     if not token:
         console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
-        return
+        sys.exit(1)
+
+    # Type guard: token is guaranteed to be TokenMetadata here
+    assert token is not None
 
     changes_made = []
 
@@ -297,7 +368,7 @@ def update(
         for loc in location:
             if ":" not in loc:
                 console.print(f"[red]Invalid location format: {loc}[/red]")
-                return
+                sys.exit(1)
             parts = loc.split(":", 2)
             loc_type = parts[0]
             loc_path = parts[1]
@@ -317,7 +388,7 @@ def update(
     if add_location:
         if ":" not in add_location:
             console.print(f"[red]Invalid location format: {add_location}[/red]")
-            return
+            sys.exit(1)
         parts = add_location.split(":", 2)
         loc_type = parts[0]
         loc_path = parts[1]
@@ -357,14 +428,21 @@ def update(
     registry.add_token(token)
     backend.save_registry(registry)
 
-    console.print(f"[green]✓ Token updated:[/green] [cyan]{name}[/cyan]")
+    stdout_console.print(f"[green]✓ Token updated:[/green] [cyan]{name}[/cyan]")
     for change in changes_made:
-        console.print(f"  [dim]→[/dim] {change}")
+        stdout_console.print(f"  [dim]→[/dim] {change}")
 
 
-@cli.command()
+@cli.command("describe")
 @click.argument("name")
-def info(name: str):
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["rich", "simple", "plain"]),
+    default="rich",
+    help="Output format (rich=styled, simple=tabulate, plain=no borders)",
+)
+def describe(name: str, output_format: str):
     """Show detailed information about a token."""
     backend = DopplerBackend()
     registry = backend.load_registry()
@@ -372,42 +450,87 @@ def info(name: str):
     token = registry.get_token(name)
     if not token:
         console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
-        return
+        sys.exit(1)
 
-    console.print(f"\n[bold cyan]{token.name}[/bold cyan]")
-    console.print(f"[cyan]Service:[/cyan] {token.service}")
-    console.print(f"[cyan]Rotation Type:[/cyan] {token.rotation_type.value}")
+    if output_format == "rich":
+        _print_rich_describe(token)
+    else:
+        tablefmt = "simple" if output_format == "simple" else "plain"
+        _print_tabulate_describe(token, tablefmt)
 
+
+def _print_rich_describe(token) -> None:
+    """Print token details as rich styled output."""
     status_color = {
         TokenStatus.ACTIVE: "green",
         TokenStatus.EXPIRING_SOON: "yellow",
         TokenStatus.EXPIRED: "red",
     }
     status_style = status_color[token.status]
-    console.print(
+
+    stdout_console.print(f"\n[bold cyan]{token.name}[/bold cyan]")
+    stdout_console.print(f"[cyan]Service:[/cyan] {token.service}")
+    stdout_console.print(f"[cyan]Rotation Type:[/cyan] {token.rotation_type.value}")
+    stdout_console.print(
         f"[cyan]Status:[/cyan] [{status_style}]{token.status.value}[/{status_style}]"
     )
 
     if token.expires_at:
         expiry_date = token.expires_at.strftime("%Y-%m-%d")
-        console.print(
+        stdout_console.print(
             f"[cyan]Expires:[/cyan] {expiry_date} "
             f"[dim]({token.days_until_expiry} days)[/dim]"
         )
 
     if token.last_rotated:
         last_rot = token.last_rotated.strftime("%Y-%m-%d %H:%M:%S")
-        console.print(f"[cyan]Last Rotated:[/cyan] {last_rot}")
+        stdout_console.print(f"[cyan]Last Rotated:[/cyan] {last_rot}")
 
-    console.print("\n[cyan]Locations:[/cyan]")
+    stdout_console.print("\n[cyan]Locations:[/cyan]")
     for loc in token.locations:
-        console.print(f"  [green]•[/green] [magenta]{loc.type}[/magenta]: {loc.path}")
+        stdout_console.print(
+            f"  [green]•[/green] [magenta]{loc.type}[/magenta]: {loc.path}"
+        )
         if loc.metadata:
             for key, value in loc.metadata.items():
-                console.print(f"    [dim]{key}:[/dim] {value}")
+                stdout_console.print(f"    [dim]{key}:[/dim] {value}")
 
     if token.notes:
-        console.print(f"\n[cyan]Notes:[/cyan] [dim]{token.notes}[/dim]")
+        stdout_console.print(f"\n[cyan]Notes:[/cyan] [dim]{token.notes}[/dim]")
+
+
+def _print_tabulate_describe(token, tablefmt: str) -> None:
+    """Print token details as tabulate table."""
+    expiry_str = "N/A"
+    if token.expires_at:
+        expiry_date = token.expires_at.strftime("%Y-%m-%d")
+        expiry_str = f"{expiry_date} ({token.days_until_expiry} days)"
+
+    last_rotated_str = "Never"
+    if token.last_rotated:
+        last_rotated_str = token.last_rotated.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Main info table
+    info_data = [
+        ["Name", token.name],
+        ["Service", token.service],
+        ["Rotation Type", token.rotation_type.value],
+        ["Status", token.status.value],
+        ["Expires", expiry_str],
+        ["Last Rotated", last_rotated_str],
+    ]
+    if token.notes:
+        info_data.append(["Notes", token.notes])
+
+    print(tabulate(info_data, tablefmt=tablefmt))
+
+    # Locations table
+    print("\nLocations:")
+    loc_data = []
+    for loc in token.locations:
+        meta_str = ", ".join(f"{k}={v}" for k, v in loc.metadata.items())
+        loc_data.append([loc.type, loc.path, meta_str or "-"])
+    print(tabulate(loc_data, headers=["Type", "Path", "Metadata"], tablefmt=tablefmt))
 
 
 if __name__ == "__main__":

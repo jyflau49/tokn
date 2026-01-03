@@ -1,6 +1,6 @@
 # tokn - Architectural Decisions
 
-*Modified: 2026-01-03*
+*Modified: 2026-01-04 (v0.4.0)*
 
 ## Overview
 
@@ -118,13 +118,61 @@
 
 **Rationale:**
 - Accurate expiry tracking is critical for token lifecycle management
-- Users rely on `tokn status` to know when tokens need rotation
+- Users rely on `tokn list` to know when tokens need rotation
 
 ### Removed Features
 
-**Dry-run:** Removed - showed minimal information. Use `tokn status` to see expiring tokens.
+**Dry-run:** Removed - showed minimal information. Use `tokn list` to see expiring tokens.
 
 **Terraform Org Provider:** Removed - no official API support for Doppler-TFC integration.
+
+---
+
+## UX Decisions (v0.4.0)
+
+### Progress Indicators
+
+**Decision:** Add spinner progress indicators to all long-running operations.
+
+**Rationale:**
+- API calls can take 5-30 seconds - users need feedback
+- TTY-aware: auto-disabled in pipes/CI environments
+- Transient mode: disappears after completion
+
+**Implementation:** `tokn/utils/progress.py` using rich Progress with SpinnerColumn.
+
+### Output Format Options
+
+**Decision:** Add `--format` option to `list` and `describe` commands.
+
+**Options:**
+- `rich` (default): Styled tables with colors and emojis
+- `simple`: Tabulate with minimal borders (copy-friendly)
+- `plain`: No borders (automation-friendly)
+
+**Rationale:**
+- Rich output for interactive use (beautiful UI)
+- Plain/simple for scripting and CI/CD pipelines
+- Follows other tools' patterns for consistency
+
+### Command Naming (status→list, info→describe)
+
+**Decision:** Rename `tokn status` to `tokn list` and `tokn info` to `tokn describe`.
+
+**Rationale:**
+- Aligns with kubectl convention (`get`/`describe`)
+- Aligns with other tools' conventions for consistency
+- "list" implies multiple items, "describe" implies single item details
+- More action-oriented and semantically clear
+
+### Stderr for Errors
+
+**Decision:** Write error messages to stderr, success messages to stdout.
+
+**Rationale:**
+- Standard Unix convention
+- Allows piping stdout without error noise
+- Exit code 1 for errors enables scripting
 
 ---
 
@@ -132,7 +180,8 @@
 
 - **Plugin Architecture:** Providers (rotation logic) + Locations (storage handlers)
 - **Pydantic Models:** Type-safe metadata with automatic validation
-- **Rich CLI:** Color-coded status, table displays, clear feedback
+- **Rich CLI:** Color-coded status, table displays, progress spinners
+- **Dual Console:** stderr for errors, stdout for success output
 
 ---
 

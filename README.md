@@ -47,7 +47,7 @@ tokn track github-pat \
 ### 3. Check status
 
 ```bash
-tokn status
+tokn list
 ```
 
 ### 4. Rotate tokens
@@ -97,13 +97,15 @@ tokn track <name> \
 - Linode CLI: `linode-cli:~/.config/linode-cli`
 - Terraform: `terraform-credentials:~/.terraform.d/credentials.tfrc.json:hostname=app.terraform.io`
 
-### `tokn status`
+### `tokn list`
 
-Show status of all tracked tokens.
+List all tracked tokens.
 
 ```bash
-tokn status              # All tokens
-tokn status --expiring   # Only expiring/expired
+tokn list                      # All tokens (rich styled)
+tokn list --expiring           # Only expiring/expired
+tokn list --format simple      # Tabulate format (copy-friendly)
+tokn list --format plain       # Plain text (automation-friendly)
 ```
 
 ### `tokn rotate`
@@ -134,12 +136,13 @@ tokn update <name> --remove-location "doppler:OLD_SECRET"
 tokn update <name> --notes "Updated notes"
 ```
 
-### `tokn info`
+### `tokn describe`
 
 Show detailed information about a token.
 
 ```bash
-tokn info <name>
+tokn describe <name>                 # Rich styled output
+tokn describe <name> --format plain  # Plain text (automation-friendly)
 ```
 
 ### `tokn remove`

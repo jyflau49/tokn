@@ -139,12 +139,12 @@ tokn backend migrate --from local --to doppler
 2. Create new credential (new `clientSecret` + `clientToken`)
 3. Attempt to update old credential expiry to +7 days
    - **Service accounts:** Expiry updated, 7-day overlap period
-   - **Open clients (LUNA):** Update fails, immediately delete old credential
+   - **Open clients (LUNA):** Update fails, old credential left as-is (natural expiry)
 4. Update `.edgerc` section with new credentials
 
 **Rationale:**
 - **7-day overlap (service accounts):** Safe period to verify new credential works
-- **Immediate delete (open clients):** Cannot update expiry, safe to remove immediately
+- **Natural expiry (open clients):** API does not allow any modifications (update/delete)
 - **Credential type detection:** Gracefully handle API limitation via error response
 - **Section isolation:** Only updates specified `.edgerc` section, preserves others
 - **Official library:** EdgeGrid auth is complex (HMAC signing) - use battle-tested code
@@ -152,6 +152,7 @@ tokn backend migrate --from local --to doppler
 **Trade-offs:**
 - Uses `requests` library (Akamai only) while rest of tokn uses `httpx`
 - Different behavior for service accounts vs open clients
+- Open client credentials accumulate until natural expiry
 - Relies on error detection for credential type (no explicit type field in API)
 
 **Usage:**

@@ -81,7 +81,6 @@ class AkamaiEdgeGridProvider(TokenProvider):
                     error="Failed to create new credential",
                 )
 
-            is_open_client = False
             try:
                 self._update_credential_expiry(
                     session,
@@ -92,12 +91,11 @@ class AkamaiEdgeGridProvider(TokenProvider):
                 )
             except Exception as e:
                 if "open client" in str(e).lower():
-                    is_open_client = True
+                    # Open clients (LUNA users) cannot be modified via API
+                    # Old credential will expire naturally
+                    pass
                 else:
                     raise
-
-            if is_open_client:
-                self._delete_credential(session, baseurl, current_cred["credentialId"])
 
             expires_at = datetime.now(UTC) + timedelta(days=expiry_days)
 
@@ -211,6 +209,40 @@ class AkamaiEdgeGridProvider(TokenProvider):
                 f"Failed to update credential expiry: {e}. Response: {error_detail}"
             ) from e
 
+    def _deactivate_credential(
+        self, session: requests.Session, baseurl: str, credential_id: int
+    ) -> None:
+        """Deactivate credential before deletion (required by API).
+
+        Args:
+            session: Authenticated requests session
+            baseurl: API base URL
+            credential_id: ID of credential to deactivate
+        """
+        url = (
+            f"{baseurl}/identity-management/v3/"
+            f"api-clients/self/credentials/{credential_id}"
+        )
+
+        payload = {"status": "INACTIVE"}
+
+        response = session.put(
+            url,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            raise Exception(
+                f"Failed to deactivate credential: {e}. Response: {error_detail}"
+            ) from e
+
     def _delete_credential(
         self, session: requests.Session, baseurl: str, credential_id: int
     ) -> None:
@@ -227,4 +259,11 @@ class AkamaiEdgeGridProvider(TokenProvider):
         )
 
         response = session.delete(url, headers={"Accept": "application/json"})
-        response.raise_for_status()
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            raise Exception(
+                f"Failed to delete old credential: {e}. Response: {error_detail}"
+            ) from e

@@ -14,7 +14,7 @@ class TestTrackCommand:
         """Test tracking a new token."""
         runner = CliRunner()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
@@ -41,7 +41,7 @@ class TestTrackCommand:
         """Test location metadata is correctly parsed."""
         runner = CliRunner()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
@@ -86,7 +86,7 @@ class TestTrackCommand:
         registry = TokenRegistry()
         registry.add_token(existing_token)
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = registry
             mock_backend.return_value = mock_instance
@@ -112,7 +112,7 @@ class TestTrackCommand:
         """Test invalid location format is rejected."""
         runner = CliRunner()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
@@ -138,7 +138,7 @@ class TestTrackCommand:
         """Test tracking without locations fails."""
         runner = CliRunner()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
@@ -164,7 +164,7 @@ class TestListCommand:
         """Test list with no tokens tracked."""
         runner = CliRunner()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
@@ -188,7 +188,7 @@ class TestListCommand:
         registry = TokenRegistry()
         registry.add_token(token)
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = registry
             mock_backend.return_value = mock_instance
@@ -214,7 +214,7 @@ class TestRemoveCommand:
         registry = TokenRegistry()
         registry.add_token(token)
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = registry
             mock_backend.return_value = mock_instance
@@ -229,7 +229,7 @@ class TestRemoveCommand:
         """Test removing non-existent token."""
         runner = CliRunner()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
@@ -262,7 +262,7 @@ class TestDescribeCommand:
         registry = TokenRegistry()
         registry.add_token(token)
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = registry
             mock_backend.return_value = mock_instance
@@ -279,7 +279,7 @@ class TestDescribeCommand:
         """Test describe for non-existent token."""
         runner = CliRunner()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.load_registry.return_value = TokenRegistry()
             mock_backend.return_value = mock_instance
@@ -292,15 +292,16 @@ class TestDescribeCommand:
 
 class TestSyncCommand:
     def test_sync_success(self):
-        """Test syncing metadata from Doppler."""
+        """Test syncing metadata from backend."""
         runner = CliRunner()
 
         registry = TokenRegistry()
         registry.last_sync = datetime.now()
 
-        with patch("tokn.cli.DopplerBackend") as mock_backend:
+        with patch("tokn.cli.get_backend") as mock_backend:
             mock_instance = MagicMock()
             mock_instance.sync.return_value = registry
+            mock_instance.backend_type = "local"
             mock_backend.return_value = mock_instance
 
             result = runner.invoke(cli, ["sync"])

@@ -1,7 +1,7 @@
 """tokn - CLI tool for automated monthly API token rotation.
 
-Manages token rotation across multiple services with Doppler backend sync.
+Manages token rotation across multiple services with pluggable backend storage.
 """
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 __all__ = ["__version__"]

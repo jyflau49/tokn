@@ -1,10 +1,17 @@
 """Doppler secret location handler."""
 
-from tokn.core.backend import DopplerBackend
+from tokn.core.backend.doppler import DopplerBackend
 from tokn.locations.base import LocationHandler
 
 
 class DopplerLocationHandler(LocationHandler):
+    """Handler for Doppler secret locations.
+
+    Note: This always uses DopplerBackend directly (not the configured backend)
+    because it's a location handler for reading/writing actual token values
+    stored in Doppler secrets, not metadata storage.
+    """
+
     def __init__(self):
         super().__init__("doppler")
         self.backend = DopplerBackend()

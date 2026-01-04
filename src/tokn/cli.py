@@ -9,7 +9,8 @@ from rich.table import Table
 from tabulate import tabulate
 
 from tokn import __version__
-from tokn.core.backend import DopplerBackend
+from tokn.core.backend import get_backend, get_config, save_config
+from tokn.core.backend.factory import migrate_backend
 from tokn.core.rotation import RotationOrchestrator
 from tokn.core.token import RotationType, TokenLocation, TokenMetadata, TokenStatus
 from tokn.utils.progress import progress_spinner
@@ -58,7 +59,7 @@ def track(
     notes: str,
 ):
     """Track a new token."""
-    backend = DopplerBackend()
+    backend = get_backend()
     registry = backend.load_registry()
 
     if registry.get_token(name):
@@ -115,7 +116,7 @@ def track(
 def rotate(rotate_all: bool, auto_only: bool, token_name: str):
     """Rotate tokens."""
     orchestrator = RotationOrchestrator()
-    backend = DopplerBackend()
+    backend = get_backend()
 
     if rotate_all:
         with progress_spinner("Rotating tokens"):
@@ -184,7 +185,7 @@ def rotate(rotate_all: bool, auto_only: bool, token_name: str):
 )
 def list_tokens(expiring: bool, output_format: str):
     """List all tracked tokens."""
-    backend = DopplerBackend()
+    backend = get_backend()
     registry = backend.load_registry()
 
     tokens = registry.list_tokens()
@@ -296,13 +297,13 @@ def _print_tabulate_table(rows: list, tablefmt: str) -> None:
 
 @cli.command()
 def sync():
-    """Sync metadata from Doppler."""
-    backend = DopplerBackend()
+    """Sync metadata from backend."""
+    backend = get_backend()
 
-    with progress_spinner("Syncing from Doppler"):
+    with progress_spinner(f"Syncing from {backend.backend_type} backend"):
         registry = backend.sync()
 
-    stdout_console.print("[green]✓ Synced from Doppler[/green]")
+    stdout_console.print(f"[green]✓ Synced from {backend.backend_type} backend[/green]")
     stdout_console.print(f"  [cyan]Tokens:[/cyan] {len(registry.tokens)}")
     if registry.last_sync:
         sync_time = registry.last_sync.strftime("%Y-%m-%d %H:%M:%S")
@@ -313,7 +314,7 @@ def sync():
 @click.argument("name")
 def remove(name: str):
     """Remove a tracked token."""
-    backend = DopplerBackend()
+    backend = get_backend()
     registry = backend.load_registry()
 
     if registry.remove_token(name):
@@ -344,7 +345,7 @@ def update(
     notes: str | None,
 ):
     """Update a tracked token's metadata."""
-    backend = DopplerBackend()
+    backend = get_backend()
     registry = backend.load_registry()
 
     token = registry.get_token(name)
@@ -444,7 +445,7 @@ def update(
 )
 def describe(name: str, output_format: str):
     """Show detailed information about a token."""
-    backend = DopplerBackend()
+    backend = get_backend()
     registry = backend.load_registry()
 
     token = registry.get_token(name)
@@ -531,6 +532,157 @@ def _print_tabulate_describe(token, tablefmt: str) -> None:
         meta_str = ", ".join(f"{k}={v}" for k, v in loc.metadata.items())
         loc_data.append([loc.type, loc.path, meta_str or "-"])
     print(tabulate(loc_data, headers=["Type", "Path", "Metadata"], tablefmt=tablefmt))
+
+
+# Backend management commands
+@cli.group()
+def backend():
+    """Manage metadata storage backend.
+
+    tokn supports two backends:
+    - local: Solo developer, offline-capable, no external dependencies
+    - doppler: Multi-device sync, team collaboration via cloud
+    """
+    pass
+
+
+@backend.command("show")
+def backend_show():
+    """Show current backend configuration."""
+    config = get_config()
+    current_backend = config.get("backend", "local")
+
+    stdout_console.print("[bold]Backend Configuration[/bold]\n")
+    stdout_console.print(f"[cyan]Current backend:[/cyan] {current_backend}")
+
+    if current_backend == "local":
+        local_config = config.get("local", {})
+        data_dir = local_config.get("data_dir", "~/.config/tokn")
+        stdout_console.print(f"[cyan]Data directory:[/cyan] {data_dir}")
+        stdout_console.print(
+            "\n[dim]Local backend: Solo developer, works offline[/dim]"
+        )
+    elif current_backend == "doppler":
+        doppler_config = config.get("doppler", {})
+        project = doppler_config.get("project", "tokn")
+        doppler_env = doppler_config.get("config", "dev")
+        stdout_console.print(f"[cyan]Doppler project:[/cyan] {project}")
+        stdout_console.print(f"[cyan]Doppler config:[/cyan] {doppler_env}")
+        stdout_console.print(
+            "\n[dim]Doppler backend: Multi-device sync, team collaboration[/dim]"
+        )
+
+    # Show token count
+    try:
+        backend_instance = get_backend()
+        registry = backend_instance.load_registry()
+        stdout_console.print(f"\n[cyan]Tokens stored:[/cyan] {len(registry.tokens)}")
+    except Exception as e:
+        console.print(f"\n[yellow]Could not load registry: {e}[/yellow]")
+
+
+@backend.command("migrate")
+@click.option(
+    "--from",
+    "from_backend",
+    required=True,
+    type=click.Choice(["local", "doppler"]),
+    help="Source backend",
+)
+@click.option(
+    "--to",
+    "to_backend",
+    required=True,
+    type=click.Choice(["local", "doppler"]),
+    help="Destination backend",
+)
+@click.option("--force", is_flag=True, help="Overwrite existing data in destination")
+def backend_migrate(from_backend: str, to_backend: str, force: bool):
+    """Migrate metadata between backends.
+
+    Examples:
+        tokn backend migrate --from doppler --to local
+        tokn backend migrate --from local --to doppler
+    """
+    if from_backend == to_backend:
+        console.print(f"[red]Source and destination are the same: {from_backend}[/red]")
+        sys.exit(1)
+
+    # Check if destination has data
+    if not force:
+        try:
+            dest = get_backend(to_backend)
+            dest_registry = dest.load_registry()
+            if dest_registry.tokens:
+                console.print(
+                    f"[yellow]Destination backend '{to_backend}' already has "
+                    f"{len(dest_registry.tokens)} token(s).[/yellow]"
+                )
+                console.print("[yellow]Use --force to overwrite.[/yellow]")
+                sys.exit(1)
+        except Exception:
+            pass  # Destination doesn't exist or can't be read, OK to proceed
+
+    with progress_spinner(f"Migrating from {from_backend} to {to_backend}"):
+        success, message, token_count = migrate_backend(from_backend, to_backend)
+
+    if success:
+        stdout_console.print(f"[green]✓ {message}[/green]")
+        stdout_console.print(f"  [cyan]Active backend:[/cyan] {to_backend}")
+    else:
+        console.print(f"[red]✗ {message}[/red]")
+        sys.exit(1)
+
+
+@backend.command("set")
+@click.argument("backend_type", type=click.Choice(["local", "doppler"]))
+@click.option("--project", help="Doppler project (for doppler backend)")
+@click.option("--config", "doppler_config", help="Doppler config (for doppler backend)")
+@click.option("--data-dir", help="Data directory (for local backend)")
+def backend_set(
+    backend_type: str,
+    project: str | None,
+    doppler_config: str | None,
+    data_dir: str | None,
+):
+    """Set the active backend without migrating data.
+
+    Use 'tokn backend migrate' to move data between backends.
+
+    Examples:
+        tokn backend set local
+        tokn backend set doppler --project tokn --config dev
+    """
+    config = get_config()
+    config["backend"] = backend_type
+
+    if backend_type == "doppler":
+        if project:
+            config.setdefault("doppler", {})["project"] = project
+        if doppler_config:
+            config.setdefault("doppler", {})["config"] = doppler_config
+    elif backend_type == "local":
+        if data_dir:
+            config.setdefault("local", {})["data_dir"] = data_dir
+
+    save_config(config)
+
+    stdout_console.print(f"[green]✓ Backend set to:[/green] {backend_type}")
+
+    # Warn if no data in new backend
+    try:
+        backend_instance = get_backend()
+        registry = backend_instance.load_registry()
+        if not registry.tokens:
+            console.print(
+                f"[yellow]Note: No tokens found in {backend_type} backend.[/yellow]"
+            )
+            console.print(
+                "[yellow]Use 'tokn backend migrate' to move data "
+                "from another backend.[/yellow]"
+            )
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not verify backend: {e}[/yellow]")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from tokn.core.backend import DopplerBackend
+from tokn.core.backend import get_backend
 from tokn.core.token import RotationType, TokenMetadata
 from tokn.locations.base import LocationHandler
 from tokn.locations.doppler import DopplerLocationHandler
@@ -24,7 +24,7 @@ from tokn.providers.terraform import TerraformAccountProvider
 
 class RotationOrchestrator:
     def __init__(self):
-        self.backend = DopplerBackend()
+        self.backend = get_backend()
         self.providers: dict[str, TokenProvider] = {
             "github": GitHubProvider(),
             "cloudflare": CloudflareProvider(),

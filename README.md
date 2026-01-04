@@ -7,7 +7,7 @@ CLI tool for automated API token rotation across multiple services.
 - **Automated rotation** for 3 services (Cloudflare, Linode CLI, Linode Doppler)
 - **Guided manual rotation** for 2 services (GitHub, Terraform Account)
 - **Multi-location updates** (Doppler + local files)
-- **Multi-laptop sync** via Doppler backend
+- **Pluggable backends** - Local (default) or Doppler for multi-device sync
 - **Batch rotation** with atomic rollback
 - **Token metadata updates** via `tokn update` command
 - **Rich terminal UI** with status tracking
@@ -27,14 +27,7 @@ uv run tokn --help
 
 ## Quick Start
 
-### 1. Setup Doppler
-
-```bash
-doppler login
-doppler setup --project tokn --config dev
-```
-
-### 2. Track your first token
+### 1. Track your first token (local backend - default)
 
 ```bash
 tokn track github-pat \
@@ -44,13 +37,13 @@ tokn track github-pat \
   --location "git-credentials:~/.git-credentials:username=git"
 ```
 
-### 3. Check status
+### 2. Check status
 
 ```bash
 tokn list
 ```
 
-### 4. Rotate tokens
+### 3. Rotate tokens
 
 ```bash
 # Rotate all auto-rotatable tokens
@@ -119,7 +112,7 @@ tokn rotate <name>             # Rotate specific token
 
 ### `tokn sync`
 
-Sync metadata from Doppler (for multi-laptop workflow).
+Sync metadata from current backend.
 
 ```bash
 tokn sync
@@ -153,6 +146,21 @@ Remove a tracked token.
 tokn remove <name>
 ```
 
+### `tokn backend`
+
+Manage metadata storage backend.
+
+```bash
+tokn backend show                                     # Show current backend
+tokn backend set local                                # Switch to local backend
+tokn backend set doppler --project tokn --config dev  # Switch to Doppler backend
+tokn backend migrate --from doppler --to local        # Migrate data between backends
+```
+
+**Backend types:**
+- **local** (default): Solo developer, works offline, no external dependencies
+- **doppler**: Multi-device sync, team collaboration via cloud
+
 ## Example Workflow
 
 ```bash
@@ -173,12 +181,10 @@ tokn track linode-doppler --service linode-doppler --rotation-type auto \
 tokn track terraform-account --service terraform-account --rotation-type manual \
   --location "terraform-credentials:~/.terraform.d/credentials.tfrc.json"
 
-# Monthly rotation (1st of month)
-tokn rotate --all
-
-# On second laptop
+# On second laptop (if using Doppler backend)
+tokn backend set doppler --project tokn --config dev
 tokn sync
-tokn status
+tokn list
 ```
 
 ## Architecture
@@ -186,7 +192,11 @@ tokn status
 ```
 tokn/
 ├── core/
-│   ├── backend.py      # Doppler metadata storage
+│   ├── backend/        # Pluggable metadata storage
+│   │   ├── base.py     # MetadataBackend interface
+│   │   ├── local.py    # Local file backend (default)
+│   │   ├── doppler.py  # Doppler cloud backend
+│   │   └── factory.py  # Backend factory + config
 │   ├── token.py        # Token models
 │   └── rotation.py     # Batch rotation orchestrator
 ├── providers/          # Service-specific rotation logic

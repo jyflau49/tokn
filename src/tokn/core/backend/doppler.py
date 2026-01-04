@@ -1,14 +1,21 @@
-"""Doppler backend for metadata storage and multi-laptop sync."""
+"""Doppler backend for metadata storage and multi-device sync."""
 
 import json
 import shutil
 import subprocess
 from datetime import datetime
 
+from tokn.core.backend.base import MetadataBackend
 from tokn.core.token import TokenRegistry
 
 
-class DopplerBackend:
+class DopplerBackend(MetadataBackend):
+    """Doppler-based metadata storage for multi-device and team workflows.
+
+    Stores token registry in a Doppler secret (TOKN_METADATA).
+    Ideal for multi-device sync or team collaboration via cloud.
+    """
+
     METADATA_SECRET = "TOKN_METADATA"
 
     def __init__(self, project: str = "tokn", config: str = "dev"):
@@ -16,18 +23,17 @@ class DopplerBackend:
         self.config = config
         self._check_doppler_cli()
 
+    @property
+    def backend_type(self) -> str:
+        return "doppler"
+
     def _run_doppler(self, args: list[str]) -> str:
-        cmd = ["doppler", "secrets"] + args + [
-            "--project", self.project,
-            "--config", self.config,
-            "--plain"
-        ]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True
+        cmd = (
+            ["doppler", "secrets"]
+            + args
+            + ["--project", self.project, "--config", self.config, "--plain"]
         )
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result.stdout.strip()
 
     def load_registry(self) -> TokenRegistry:
@@ -47,9 +53,16 @@ class DopplerBackend:
         registry.last_sync = datetime.now()
         data = registry.model_dump_json(indent=2)
 
-        cmd = ["doppler", "secrets", "set", self.METADATA_SECRET,
-               "--project", self.project,
-               "--config", self.config]
+        cmd = [
+            "doppler",
+            "secrets",
+            "set",
+            self.METADATA_SECRET,
+            "--project",
+            self.project,
+            "--config",
+            self.config,
+        ]
         subprocess.run(cmd, input=data, text=True, check=True, capture_output=True)
 
     def sync(self) -> TokenRegistry:
@@ -65,12 +78,7 @@ class DopplerBackend:
             args.extend(["--config", config])
 
         cmd = ["doppler", "secrets"] + args + ["--plain"]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return result.stdout.strip()
 
     def set_secret(

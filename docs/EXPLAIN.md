@@ -1,6 +1,6 @@
 # tokn - Architectural Decisions
 
-*Modified: 2026-01-04 (v0.4.0)*
+*Modified: 2026-01-04 (v0.5.0)*
 
 ## Overview
 
@@ -10,16 +10,38 @@
 
 ## Core Architecture
 
-### Doppler Backend Storage
+### Pluggable Backend Storage (v0.5.0)
 
-**Decision:** Use Doppler CLI for metadata storage in a single `TOKN_METADATA` secret.
+**Decision:** Abstract backend interface with local as default, Doppler as optional.
+
+**Context:** Originally tokn required Doppler for all operations. Users needed Doppler CLI installed and internet connection even for solo development.
+
+**Implementation:**
+- `MetadataBackend` abstract base class in `core/backend/base.py`
+- `LocalBackend`: Stores registry as JSON in `~/.config/tokn/registry.json`
+- `DopplerBackend`: Stores registry in Doppler secret `TOKN_METADATA`
+- Factory pattern in `core/backend/factory.py` with config file support
+- Config stored in `~/.config/tokn/config.toml`
 
 **Rationale:**
-- Built-in multi-device sync via cloud backend
-- Leverages existing Doppler authentication
-- No custom backend needed
+- **Local default:** Works offline, no external dependencies, ideal for solo developers
+- **Doppler optional:** Multi-device sync, team collaboration via cloud
+- **Terraform-inspired:** Follows proven backend pattern from Terraform
+- **Explicit migration:** `tokn backend migrate` requires user intent
 
-**Trade-off:** Requires internet connection, but gains zero-config sync.
+**Trade-offs:**
+- Local backend has no automatic sync (user must manually copy or use Git)
+- More code to maintain (backend abstraction layer)
+- Config file adds complexity
+
+**Migration:**
+```bash
+# Migrate from Doppler to local
+tokn backend migrate --from doppler --to local
+
+# Migrate from local to Doppler
+tokn backend migrate --from local --to doppler
+```
 
 ### Provider Plugin Architecture
 
@@ -179,9 +201,11 @@
 ## Design Patterns
 
 - **Plugin Architecture:** Providers (rotation logic) + Locations (storage handlers)
+- **Backend Abstraction:** Pluggable metadata storage (local/doppler)
 - **Pydantic Models:** Type-safe metadata with automatic validation
 - **Rich CLI:** Color-coded status, table displays, progress spinners
 - **Dual Console:** stderr for errors, stdout for success output
+- **Factory Pattern:** Backend instantiation via config-driven factory
 
 ---
 
@@ -189,4 +213,5 @@
 
 - **Security First:** Always assume credentials will be compromised if readable by others
 - **API Deprecation:** Better to be honest about manual rotation than use deprecated APIs
-- **Simplicity Wins:** Doppler backend simpler than custom sync, in-memory backups simpler than file cleanup
+- **Local Default:** External dependencies should be optional, not required
+- **Terraform Pattern:** Backend abstraction is a proven pattern worth adopting

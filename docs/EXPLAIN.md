@@ -1,6 +1,6 @@
 # tokn - Design Decisions
 
-*Modified: 2026-01-05 (v0.7.1)*
+*Modified: 2026-01-05 (v0.8.0)*
 
 `tokn` is a CLI tool for automated API token rotation. This document explains key design decisions and trade-offs.
 

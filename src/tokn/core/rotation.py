@@ -84,10 +84,7 @@ class RotationOrchestrator:
             for location in token_metadata.locations:
                 update_metadata = dict(location.metadata)
 
-                if (
-                    token_metadata.service == "akamai-edgegrid"
-                    and location.type == "edgerc"
-                ):
+                if token_metadata.service == "akamai" and location.type == "edgerc":
                     new_client_token = provider.get_new_client_token()
                     if new_client_token:
                         update_metadata["client_token"] = new_client_token

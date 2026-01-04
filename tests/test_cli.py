@@ -52,7 +52,7 @@ class TestTrackCommand:
                     "track",
                     "test-token",
                     "--service",
-                    "cloudflare",
+                    "cloudflare-account-token",
                     "--rotation-type",
                     "auto",
                     "--location",

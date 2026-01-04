@@ -34,11 +34,10 @@ def cli():
     type=click.Choice(
         [
             "github",
-            "cloudflare",
-            "linode-cli",
-            "linode-doppler",
-            "terraform-account",
-            "akamai-edgegrid",
+            "cloudflare-account-token",
+            "linode",
+            "terraform",
+            "akamai",
         ]
     ),
     help="Service provider",

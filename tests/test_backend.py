@@ -68,7 +68,7 @@ class TestLocalBackend:
 
             token = TokenMetadata(
                 name="sync-test",
-                service="cloudflare",
+                service="cloudflare-account-token",
                 rotation_type=RotationType.AUTO,
                 locations=[],
             )

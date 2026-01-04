@@ -1,6 +1,6 @@
 # tokn - Architectural Decisions
 
-*Modified: 2026-01-04 (v0.6.1)*
+*Modified: 2026-01-04 (v0.7.0)*
 
 ## Overview
 
@@ -158,12 +158,39 @@ tokn backend migrate --from local --to doppler
 **Usage:**
 ```bash
 tokn track akamai-default \
-  --service akamai-edgegrid \
+  --service akamai \
   --rotation-type auto \
   --location "edgerc:~/.edgerc:section=default"
 
 tokn rotate akamai-default
 ```
+
+---
+
+## Naming Standard (v0.7.0)
+
+**Decision:** Standardize service names using `{vendor}[-{token-type-if-ambiguous}]` pattern.
+
+**Context:** Original naming was inconsistent - some names referred to storage locations (`linode-doppler`), some to auth methods (`akamai-edgegrid`), and some were ambiguous (`cloudflare` could mean User Token or Account Token).
+
+**Changes:**
+
+| Old Name | New Name | Rationale |
+|----------|----------|-----------|
+| `github` | `github` | Clear - only one PAT type |
+| `cloudflare` | `cloudflare-account-token` | Distinguish from User Token |
+| `linode-cli` | `linode` | PAT is the token type, not CLI |
+| `linode-doppler` | ❌ Removed | Storage is location concern, not service |
+| `terraform-account` | `terraform` | Only one token type |
+| `akamai-edgegrid` | `akamai` | EdgeGrid is auth method, not credential type |
+
+**Rationale:**
+- **Vendor-first:** Service name identifies the vendor/provider
+- **Token type only when ambiguous:** Cloudflare has multiple token types
+- **Storage is location concern:** Use `--location` for storage, not service name
+- **Auth method is implementation detail:** Users care about "Akamai credentials", not "EdgeGrid"
+
+**Migration:** Users with existing tracked tokens using old service names will need to re-track with new names.
 
 ---
 

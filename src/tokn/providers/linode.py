@@ -8,11 +8,12 @@ from tokn.providers.base import RotationResult, TokenProvider
 
 
 class LinodeProvider(TokenProvider):
+    """Linode Personal Access Token (PAT) rotation provider."""
+
     API_BASE = "https://api.linode.com/v4"
 
-    def __init__(self, token_type: str = "CLI"):
-        super().__init__(f"Linode {token_type} Token")
-        self.token_type = token_type
+    def __init__(self):
+        super().__init__("Linode PAT")
 
     @property
     def supports_auto_rotation(self) -> bool:
@@ -20,7 +21,7 @@ class LinodeProvider(TokenProvider):
 
     def rotate(self, current_token: str, **kwargs) -> RotationResult:
         date_str = datetime.now().strftime("%Y%m%d")
-        default_label = f"tokn-{self.token_type.lower()}-{date_str}"
+        default_label = f"tokn-linode-{date_str}"
         label = kwargs.get("label", default_label)
         scopes = kwargs.get("scopes", "*")
         expiry_days = kwargs.get("expiry_days", 90)

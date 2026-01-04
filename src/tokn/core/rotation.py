@@ -29,11 +29,10 @@ class RotationOrchestrator:
         self.backend = get_backend()
         self.providers: dict[str, TokenProvider] = {
             "github": GitHubProvider(),
-            "cloudflare": CloudflareProvider(),
-            "linode-cli": LinodeProvider("CLI"),
-            "linode-doppler": LinodeProvider("Doppler"),
-            "terraform-account": TerraformAccountProvider(),
-            "akamai-edgegrid": AkamaiEdgeGridProvider(),
+            "cloudflare-account-token": CloudflareProvider(),
+            "linode": LinodeProvider(),
+            "terraform": TerraformAccountProvider(),
+            "akamai": AkamaiEdgeGridProvider(),
         }
         self.location_handlers: dict[str, LocationHandler] = {
             "doppler": DopplerLocationHandler(),
@@ -195,15 +194,15 @@ class RotationOrchestrator:
         if token_metadata.service == "github":
             kwargs["scopes"] = ["repo"]
             kwargs["note"] = f"tokn-{token_metadata.name}"
-        elif token_metadata.service == "cloudflare":
+        elif token_metadata.service == "cloudflare-account-token":
             kwargs["name"] = f"tokn-{token_metadata.name}"
             for location in token_metadata.locations:
                 if "account_id" in location.metadata:
                     kwargs["account_id"] = location.metadata["account_id"]
                     break
-        elif token_metadata.service in ["linode-cli", "linode-doppler"]:
+        elif token_metadata.service == "linode":
             kwargs["label"] = f"tokn-{token_metadata.name}"
-        elif token_metadata.service == "akamai-edgegrid":
+        elif token_metadata.service == "akamai":
             for location in token_metadata.locations:
                 if location.type == "edgerc":
                     kwargs["edgerc_path"] = location.path

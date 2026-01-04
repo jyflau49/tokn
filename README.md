@@ -5,7 +5,7 @@ CLI tool for simple API token rotation across multiple providers.
 ## Features
 
 - **Automated rotation** for 3 providers (Cloudflare, Linode, Akamai)
-- **Manual rotation** for 2 providers (GitHub, Terraform Account)
+- **Manual rotation** for 2 providers (GitHub, Terraform)
 - **Pluggable backends** - Local (default) or Doppler for multi-device sync
 - **Multi-location updates** (Doppler + local files)
 
@@ -27,8 +27,8 @@ uv run tokn --help
 ### 1. Track your first token (local backend - default)
 
 ```bash
-tokn track linode-cli-pat \
-  --service linode-cli \
+tokn track linode-local \
+  --service linode \
   --rotation-type auto \
   --location "linode-cli:~/.config/linode-cli"
 ```
@@ -46,7 +46,7 @@ tokn list
 tokn rotate --all
 
 # Rotate specific token
-tokn rotate linode-cli-pat
+tokn rotate linode-local
 ```
 
 ## Supported Services
@@ -54,11 +54,10 @@ tokn rotate linode-cli-pat
 | Service | Provider | Auto-Rotate | Locations |
 |---------|----------|-------------|-----------|
 | GitHub PAT | `github` | ✗ (manual) | Doppler, `~/.git-credentials` |
-| Cloudflare API Token | `cloudflare` | ✓ | Doppler |
-| Linode CLI Token | `linode-cli` | ✓ | `~/.config/linode-cli` |
-| Linode Doppler Token | `linode-doppler` | ✓ | Doppler |
-| HCP Terraform Account | `terraform-account` | ✗ (manual) | `~/.terraform.d/credentials.tfrc.json` |
-| Akamai EdgeGrid | `akamai-edgegrid` | ✓ | `~/.edgerc` |
+| Cloudflare Account Token | `cloudflare-account-token` | ✓ | Doppler |
+| Linode PAT | `linode` | ✓ | `~/.config/linode-cli`, Doppler |
+| Terraform Account Token | `terraform` | ✗ (manual) | `~/.terraform.d/credentials.tfrc.json` |
+| Akamai API Client | `akamai` | ✓ | `~/.edgerc` |
 
 **Notes:**
 - Cloudflare tokens require `account_id` in location metadata
@@ -167,16 +166,16 @@ tokn track github-pat --service github --rotation-type manual \
   --location "doppler:GITHUB_TOKEN:project=my-infra,config=dev" \
   --location "git-credentials:~/.git-credentials:username=git"
 
-tokn track cloudflare-token --service cloudflare --rotation-type auto \
+tokn track cloudflare-token --service cloudflare-account-token --rotation-type auto \
   --location "doppler:CLOUDFLARE_API_TOKEN:project=magictracker,config=prod,account_id=abc123def456"
 
-tokn track linode-cli --service linode-cli --rotation-type auto \
+tokn track linode-local --service linode --rotation-type auto \
   --location "linode-cli:~/.config/linode-cli"
 
-tokn track linode-doppler --service linode-doppler --rotation-type auto \
+tokn track linode-cloud --service linode --rotation-type auto \
   --location "doppler:LINODE_TOKEN:project=magictracker,config=prod"
 
-tokn track terraform-account --service terraform-account --rotation-type manual \
+tokn track terraform-token --service terraform --rotation-type manual \
   --location "terraform-credentials:~/.terraform.d/credentials.tfrc.json"
 
 # On second laptop (if using Doppler backend)

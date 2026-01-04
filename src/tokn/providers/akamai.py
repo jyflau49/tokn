@@ -81,13 +81,19 @@ class AkamaiEdgeGridProvider(TokenProvider):
                     error="Failed to create new credential",
                 )
 
-            self._update_credential_expiry(
-                session,
-                baseurl,
-                current_cred["credentialId"],
-                self.OVERLAP_DAYS,
-                current_cred.get("maxAllowedExpiry"),
-            )
+            try:
+                self._update_credential_expiry(
+                    session,
+                    baseurl,
+                    current_cred["credentialId"],
+                    self.OVERLAP_DAYS,
+                    current_cred.get("maxAllowedExpiry"),
+                )
+            except Exception as e:
+                if "open client" in str(e).lower():
+                    pass
+                else:
+                    raise
 
             expires_at = datetime.now(UTC) + timedelta(days=expiry_days)
 
@@ -192,4 +198,11 @@ class AkamaiEdgeGridProvider(TokenProvider):
             },
             json=payload,
         )
-        response.raise_for_status()
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            error_detail = response.text
+            raise Exception(
+                f"Failed to update credential expiry: {e}. Response: {error_detail}"
+            ) from e

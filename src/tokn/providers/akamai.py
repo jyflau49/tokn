@@ -82,7 +82,11 @@ class AkamaiEdgeGridProvider(TokenProvider):
                 )
 
             self._update_credential_expiry(
-                session, baseurl, current_cred["credentialId"], self.OVERLAP_DAYS
+                session,
+                baseurl,
+                current_cred["credentialId"],
+                self.OVERLAP_DAYS,
+                current_cred.get("maxAllowedExpiry"),
             )
 
             expires_at = datetime.now(UTC) + timedelta(days=expiry_days)
@@ -149,14 +153,30 @@ class AkamaiEdgeGridProvider(TokenProvider):
         baseurl: str,
         credential_id: int,
         days_from_now: int,
+        max_allowed_expiry: str | None = None,
     ) -> None:
-        """Update credential expiry to specified days from now."""
+        """Update credential expiry to specified days from now.
+
+        Args:
+            session: Authenticated requests session
+            baseurl: API base URL
+            credential_id: ID of credential to update
+            days_from_now: Days from now to set expiry
+            max_allowed_expiry: Maximum allowed expiry (from credential)
+        """
         url = (
             f"{baseurl}/identity-management/v3/"
             f"api-clients/self/credentials/{credential_id}"
         )
 
         new_expiry = datetime.now(UTC) + timedelta(days=days_from_now)
+
+        if max_allowed_expiry:
+            max_expiry_dt = datetime.strptime(
+                max_allowed_expiry, "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).replace(tzinfo=UTC)
+            new_expiry = min(new_expiry, max_expiry_dt)
+
         expiry_str = new_expiry.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
         payload = {

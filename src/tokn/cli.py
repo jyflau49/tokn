@@ -42,7 +42,9 @@ def cli():
     ),
     help="Service provider",
 )
-@click.option("--rotation-type", type=click.Choice(["auto", "manual"]), default="auto")
+@click.option(
+    "--rotation-type", type=click.Choice(["auto", "manual"]), default="manual"
+)
 @click.option(
     "--location",
     multiple=True,

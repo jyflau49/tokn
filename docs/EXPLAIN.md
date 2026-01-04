@@ -1,6 +1,6 @@
 # tokn - Architectural Decisions
 
-*Modified: 2026-01-04 (v0.6.0)*
+*Modified: 2026-01-04 (v0.6.1)*
 
 ## Overview
 
@@ -121,11 +121,13 @@ tokn backend migrate --from local --to doppler
 - Balances security (regular rotation) with convenience (quarterly)
 - Aligns with common enterprise security policies
 
-### Akamai EdgeGrid Rotation (v0.6.0)
+### Akamai EdgeGrid Rotation (v0.6.0, v0.6.1)
 
-**Decision:** Use create-and-overlap strategy with 7-day old credential expiry.
+**Decision:** Use create-and-overlap strategy with credential type detection.
 
-**Context:** Akamai API credentials use EdgeGrid authentication (HMAC-SHA-256). Each API client can have multiple credentials.
+**Context:** Akamai API credentials use EdgeGrid authentication (HMAC-SHA-256). Each API client can have multiple credentials. Two credential types exist:
+- **Service accounts:** Support expiry updates via API
+- **Open clients (LUNA users):** Cannot update expiry via API
 
 **Implementation:**
 - `AkamaiEdgeGridProvider` in `providers/akamai.py`
@@ -134,20 +136,23 @@ tokn backend migrate --from local --to doppler
 
 **Rotation Flow:**
 1. List credentials, find current by `clientToken`
-2. Update old credential expiry to +7 days (overlap period)
-3. Create new credential (new `clientSecret` + `clientToken`)
+2. Create new credential (new `clientSecret` + `clientToken`)
+3. Attempt to update old credential expiry to +7 days
+   - **Service accounts:** Expiry updated, 7-day overlap period
+   - **Open clients (LUNA):** Update fails, immediately delete old credential
 4. Update `.edgerc` section with new credentials
-5. Old credential auto-expires after 7 days
 
 **Rationale:**
-- **7-day overlap:** Safe period to verify new credential works
-- **No immediate delete:** Prevents lockout if new credential fails
+- **7-day overlap (service accounts):** Safe period to verify new credential works
+- **Immediate delete (open clients):** Cannot update expiry, safe to remove immediately
+- **Credential type detection:** Gracefully handle API limitation via error response
 - **Section isolation:** Only updates specified `.edgerc` section, preserves others
 - **Official library:** EdgeGrid auth is complex (HMAC signing) - use battle-tested code
 
 **Trade-offs:**
 - Uses `requests` library (Akamai only) while rest of tokn uses `httpx`
-- Credential accumulation if rotation fails mid-way (mitigated by 7-day expiry)
+- Different behavior for service accounts vs open clients
+- Relies on error detection for credential type (no explicit type field in API)
 
 **Usage:**
 ```bash

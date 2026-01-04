@@ -81,6 +81,7 @@ class AkamaiEdgeGridProvider(TokenProvider):
                     error="Failed to create new credential",
                 )
 
+            is_open_client = False
             try:
                 self._update_credential_expiry(
                     session,
@@ -91,9 +92,12 @@ class AkamaiEdgeGridProvider(TokenProvider):
                 )
             except Exception as e:
                 if "open client" in str(e).lower():
-                    pass
+                    is_open_client = True
                 else:
                     raise
+
+            if is_open_client:
+                self._delete_credential(session, baseurl, current_cred["credentialId"])
 
             expires_at = datetime.now(UTC) + timedelta(days=expiry_days)
 
@@ -206,3 +210,21 @@ class AkamaiEdgeGridProvider(TokenProvider):
             raise Exception(
                 f"Failed to update credential expiry: {e}. Response: {error_detail}"
             ) from e
+
+    def _delete_credential(
+        self, session: requests.Session, baseurl: str, credential_id: int
+    ) -> None:
+        """Delete old credential (for LUNA user open clients).
+
+        Args:
+            session: Authenticated requests session
+            baseurl: API base URL
+            credential_id: ID of credential to delete
+        """
+        url = (
+            f"{baseurl}/identity-management/v3/"
+            f"api-clients/self/credentials/{credential_id}"
+        )
+
+        response = session.delete(url, headers={"Accept": "application/json"})
+        response.raise_for_status()

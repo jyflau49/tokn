@@ -38,6 +38,7 @@ def cli():
             "linode-cli",
             "linode-doppler",
             "terraform-account",
+            "akamai-edgegrid",
         ]
     ),
     help="Service provider",

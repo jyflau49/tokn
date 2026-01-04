@@ -1,6 +1,6 @@
 # tokn - Architectural Decisions
 
-*Modified: 2026-01-04 (v0.5.0)*
+*Modified: 2026-01-04 (v0.6.0)*
 
 ## Overview
 
@@ -121,6 +121,44 @@ tokn backend migrate --from local --to doppler
 - Balances security (regular rotation) with convenience (quarterly)
 - Aligns with common enterprise security policies
 
+### Akamai EdgeGrid Rotation (v0.6.0)
+
+**Decision:** Use create-and-overlap strategy with 7-day old credential expiry.
+
+**Context:** Akamai API credentials use EdgeGrid authentication (HMAC-SHA-256). Each API client can have multiple credentials.
+
+**Implementation:**
+- `AkamaiEdgeGridProvider` in `providers/akamai.py`
+- `EdgercHandler` in `locations/edgerc.py` for `.edgerc` file management
+- Uses `requests` + `edgegrid-python` (official Akamai library)
+
+**Rotation Flow:**
+1. List credentials, find current by `clientToken`
+2. Update old credential expiry to +7 days (overlap period)
+3. Create new credential (new `clientSecret` + `clientToken`)
+4. Update `.edgerc` section with new credentials
+5. Old credential auto-expires after 7 days
+
+**Rationale:**
+- **7-day overlap:** Safe period to verify new credential works
+- **No immediate delete:** Prevents lockout if new credential fails
+- **Section isolation:** Only updates specified `.edgerc` section, preserves others
+- **Official library:** EdgeGrid auth is complex (HMAC signing) - use battle-tested code
+
+**Trade-offs:**
+- Uses `requests` library (Akamai only) while rest of tokn uses `httpx`
+- Credential accumulation if rotation fails mid-way (mitigated by 7-day expiry)
+
+**Usage:**
+```bash
+tokn track akamai-default \
+  --service akamai-edgegrid \
+  --rotation-type auto \
+  --location "edgerc:~/.edgerc:section=default"
+
+tokn rotate akamai-default
+```
+
 ---
 
 ## Feature Decisions
@@ -206,6 +244,7 @@ tokn backend migrate --from local --to doppler
 - **Rich CLI:** Color-coded status, table displays, progress spinners
 - **Dual Console:** stderr for errors, stdout for success output
 - **Factory Pattern:** Backend instantiation via config-driven factory
+- **Overlap Strategy:** For Akamai, update old credential expiry instead of immediate delete
 
 ---
 
@@ -215,3 +254,5 @@ tokn backend migrate --from local --to doppler
 - **API Deprecation:** Better to be honest about manual rotation than use deprecated APIs
 - **Local Default:** External dependencies should be optional, not required
 - **Terraform Pattern:** Backend abstraction is a proven pattern worth adopting
+- **Use Official Libraries:** For complex auth (EdgeGrid), use official libraries over reimplementation
+- **Overlap Strategy:** Safe credential rotation requires overlap period, not immediate revocation

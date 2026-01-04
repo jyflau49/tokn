@@ -1,16 +1,13 @@
 # tokn
 
-CLI tool for automated API token rotation across multiple services.
+CLI tool for simple API token rotation across multiple providers.
 
 ## Features
 
-- **Automated rotation** for 3 services (Cloudflare, Linode CLI, Linode Doppler)
-- **Guided manual rotation** for 2 services (GitHub, Terraform Account)
-- **Multi-location updates** (Doppler + local files)
+- **Automated rotation** for 3 providers (Cloudflare, Linode, Akamai)
+- **Manual rotation** for 2 providers (GitHub, Terraform Account)
 - **Pluggable backends** - Local (default) or Doppler for multi-device sync
-- **Batch rotation** with atomic rollback
-- **Token metadata updates** via `tokn update` command
-- **Rich terminal UI** with status tracking
+- **Multi-location updates** (Doppler + local files)
 
 ## Installation
 
@@ -30,11 +27,10 @@ uv run tokn --help
 ### 1. Track your first token (local backend - default)
 
 ```bash
-tokn track github-pat \
-  --service github \
-  --rotation-type manual \
-  --location "doppler:GITHUB_TOKEN:project=my-infra,config=dev" \
-  --location "git-credentials:~/.git-credentials:username=git"
+tokn track linode-cli-pat \
+  --service linode-cli \
+  --rotation-type auto \
+  --location "linode-cli:~/.config/linode-cli"
 ```
 
 ### 2. Check status
@@ -50,7 +46,7 @@ tokn list
 tokn rotate --all
 
 # Rotate specific token
-tokn rotate github-pat
+tokn rotate linode-cli-pat
 ```
 
 ## Supported Services
@@ -61,7 +57,8 @@ tokn rotate github-pat
 | Cloudflare API Token | `cloudflare` | ✓ | Doppler |
 | Linode CLI Token | `linode-cli` | ✓ | `~/.config/linode-cli` |
 | Linode Doppler Token | `linode-doppler` | ✓ | Doppler |
-| HCP Terraform Account | `terraform-account` | ✗ (OAuth) | `~/.terraform.d/credentials.tfrc.json` |
+| HCP Terraform Account | `terraform-account` | ✗ (manual) | `~/.terraform.d/credentials.tfrc.json` |
+| Akamai EdgeGrid | `akamai-edgegrid` | ✓ | `~/.edgerc` |
 
 **Notes:**
 - Cloudflare tokens require `account_id` in location metadata
@@ -89,6 +86,7 @@ tokn track <name> \
 - Git credentials: `git-credentials:~/.git-credentials:username=git`
 - Linode CLI: `linode-cli:~/.config/linode-cli`
 - Terraform: `terraform-credentials:~/.terraform.d/credentials.tfrc.json:hostname=app.terraform.io`
+- Akamai EdgeGrid: `edgerc:~/.edgerc:section=default`
 
 ### `tokn list`
 
@@ -203,10 +201,12 @@ tokn/
 │   ├── github.py
 │   ├── cloudflare.py
 │   ├── linode.py
-│   └── terraform.py
+│   ├── terraform.py
+│   └── akamai.py
 ├── locations/          # Multi-location update handlers
 │   ├── doppler.py
-│   └── local_files.py
+│   ├── local_files.py
+│   └── edgerc.py
 └── cli.py             # Click CLI interface
 ```
 

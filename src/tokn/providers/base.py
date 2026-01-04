@@ -37,3 +37,7 @@ class TokenProvider(ABC):
 
     def validate_token(self, token: str) -> bool:
         return bool(token and len(token) > 0)
+
+    def get_new_client_token(self, **kwargs) -> str | None:
+        """Get new client token after rotation (Akamai-specific)."""
+        return None

@@ -32,5 +32,8 @@ htmlcov/
 # Ruff
 .ruff_cache
 
+# Artifacts
+artifacts/
+
 # Personal Documentation
 MY*.md

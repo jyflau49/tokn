@@ -4,9 +4,9 @@ Handles reading and writing variables to Postman Environments via the Postman AP
 Similar to .edgerc sections - each environment can store multiple credential variables.
 
 Requires:
-- Postman API key (from POSTMAN_API_KEY env var or metadata)
+- POSTMAN_API_KEY environment variable
 - Environment ID (from metadata)
-- Variable key name (from metadata)
+- Variable key name (from path)
 """
 
 import os
@@ -24,8 +24,9 @@ class PostmanEnvironmentHandler(LocationHandler):
 
     Metadata required:
         environment_id: The Postman environment UID
-        variable_key: The variable name to read/write
-        api_key: Postman API key (optional, defaults to POSTMAN_API_KEY env var)
+
+    Environment variable required:
+        POSTMAN_API_KEY: Postman API key for authentication
     """
 
     API_BASE = "https://api.getpostman.com"
@@ -40,13 +41,12 @@ class PostmanEnvironmentHandler(LocationHandler):
             path: Variable key name (e.g., "AKAMAI_CLIENT_SECRET")
             **kwargs:
                 environment_id: Postman environment UID
-                api_key: Postman API key (optional)
 
         Returns:
             The variable value or None if not found
         """
         environment_id = kwargs.get("environment_id")
-        api_key = kwargs.get("api_key") or os.environ.get("POSTMAN_API_KEY")
+        api_key = os.environ.get("POSTMAN_API_KEY")
 
         if not environment_id or not api_key:
             return None
@@ -75,13 +75,12 @@ class PostmanEnvironmentHandler(LocationHandler):
             token: New value for the variable
             **kwargs:
                 environment_id: Postman environment UID
-                api_key: Postman API key (optional)
 
         Returns:
             True if successful, False otherwise
         """
         environment_id = kwargs.get("environment_id")
-        api_key = kwargs.get("api_key") or os.environ.get("POSTMAN_API_KEY")
+        api_key = os.environ.get("POSTMAN_API_KEY")
 
         if not environment_id or not api_key:
             return False

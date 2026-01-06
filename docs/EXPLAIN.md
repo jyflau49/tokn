@@ -1,6 +1,6 @@
 # tokn - Design Decisions
 
-*Modified: 2026-01-05 (v0.9.0)*
+*Modified: 2026-01-06 (v0.9.1)*
 
 `tokn` is a CLI tool for simple API token management. This document explains key design details.
 
@@ -11,6 +11,15 @@
 **Local (default):** Stores metadata in `~/.config/tokn/registry.json`. Works offline, no dependencies.
 
 **Doppler (optional):** Stores metadata in `TOKN_METADATA` secret. Multi-device sync via cloud.
+
+**Requirements:**
+- Doppler backend and location require [Doppler CLI](https://docs.doppler.com/docs/install-cli) installed and authenticated
+- Run `doppler login` after installation
+
+**High Availability:**
+- Doppler CLI automatically saves encrypted fallback snapshots at `$HOME/.doppler/fallback`
+- Falls back to local snapshot after 50-60 second timeout if Doppler.com is unreachable
+- Enables offline operation after initial sync
 
 **Key points:**
 - Token values never stored in metadata - only expiry dates and locations
@@ -68,9 +77,10 @@
 ### Postman (v0.9.0)
 **Manual only.** Postman API keys cannot be programmatically rotated - no public API endpoint exists.
 
-**Postman Environment location:** Store credentials in Postman Environments for API testing workflows.
+**Postman Environment location (v0.9.1):** Store credentials in Postman Environments for API testing workflows.
 - Uses Postman API (`PUT /environments/{id}`) to update variables
-- Requires `POSTMAN_API_KEY` env var or `api_key` in metadata
+- Requires `POSTMAN_API_KEY` environment variable (security: no API keys in metadata)
+- Cross-compatible with all services (GitHub, Cloudflare, Linode, Terraform, Akamai, Postman)
 - Similar to `.edgerc` sections - each environment stores multiple variables
 
 ---

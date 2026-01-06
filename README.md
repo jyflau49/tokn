@@ -53,14 +53,16 @@ tokn rotate linode-local
 
 | Service | Provider | Auto-Rotate | Locations |
 |---------|----------|-------------|-----------|
-| GitHub PAT | `github` | ✗ (manual) | Doppler, `~/.git-credentials` |
-| Cloudflare Account Token | `cloudflare-account-token` | ✓ | Doppler |
-| Linode PAT | `linode` | ✓ | `~/.config/linode-cli`, Doppler |
-| Terraform Account Token | `terraform` | ✗ (manual) | `~/.terraform.d/credentials.tfrc.json` |
+| GitHub PAT | `github` | ✗ (manual) | Doppler, `~/.git-credentials`, Postman Environment |
+| Cloudflare Account Token | `cloudflare-account-token` | ✓ | Doppler, Postman Environment |
+| Linode PAT | `linode` | ✓ | `~/.config/linode-cli`, Doppler, Postman Environment |
+| Terraform Account Token | `terraform` | ✗ (manual) | `~/.terraform.d/credentials.tfrc.json`, Postman Environment |
 | Akamai API Client | `akamai` | ✓ | `~/.edgerc`, Doppler, Postman Environment |
 | Postman API Key | `postman` | ✗ (manual) | Doppler, Postman Environment |
 
 **Notes:**
+- **Postman Environment** location is cross-compatible with all services
+- **Doppler** locations require [Doppler CLI](https://docs.doppler.com/docs/install-cli) installed and authenticated
 - Cloudflare tokens require `account_id` in location metadata
 - All auto-rotated tokens expire 90 days after rotation
 - Multiple `--location` flags supported for updating same token across locations
@@ -88,7 +90,7 @@ tokn track <name> \
 - Linode CLI (local): `linode-cli:~/.config/linode-cli`
 - Terraform (local): `terraform-credentials:~/.terraform.d/credentials.tfrc.json:hostname=app.terraform.io`
 - Akamai EdgeGrid (local): `edgerc:~/.edgerc:section=default`
-- Postman Environment: `postman-env:VAR_NAME:environment_id=env-uid`
+- Postman Environment: `postman-env:VAR_NAME:environment_id=env-uid` (requires `POSTMAN_API_KEY` env var)
 
 ### `tokn list`
 

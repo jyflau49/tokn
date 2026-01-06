@@ -1,8 +1,8 @@
 # tokn - Design Decisions
 
-*Modified: 2026-01-05 (v0.8.0)*
+*Modified: 2026-01-05 (v0.9.0)*
 
-`tokn` is a CLI tool for automated API token rotation. This document explains key design decisions and trade-offs.
+`tokn` is a CLI tool for simple API token management. This document explains key design details.
 
 ---
 
@@ -24,7 +24,7 @@
 
 **Provider types:**
 - **Auto-rotation:** Cloudflare, Linode, Akamai (API-driven)
-- **Manual rotation:** GitHub, Terraform (deprecated APIs or OAuth required)
+- **Manual rotation:** GitHub, Terraform, Postman (no rotation API available)
 
 ---
 
@@ -60,10 +60,18 @@
 3. Update `.edgerc` section
 
 **Credential types:**
-- **Service accounts:** 7-day overlap period (expiry update supported)
-- **Open clients (LUNA users):** No overlap (API doesn't allow expiry updates)
+- **SERVICE_ACCOUNT:** 7-day overlap period (expiry update supported)
+- **USER_CLIENT (LUNA):** No overlap (API doesn't allow expiry updates)
 
 **Note:** Uses official `edgegrid-python` library for HMAC-SHA-256 authentication.
+
+### Postman (v0.9.0)
+**Manual only.** Postman API keys cannot be programmatically rotated - no public API endpoint exists.
+
+**Postman Environment location:** Store credentials in Postman Environments for API testing workflows.
+- Uses Postman API (`PUT /environments/{id}`) to update variables
+- Requires `POSTMAN_API_KEY` env var or `api_key` in metadata
+- Similar to `.edgerc` sections - each environment stores multiple variables
 
 ---
 
@@ -78,10 +86,11 @@
 | Linode PAT | `linode` |
 | Terraform Account Token | `terraform` |
 | Akamai API Client | `akamai` |
+| Postman API Key | `postman` |
 
 **Principles:**
 - Vendor-first naming
-- Token type only when ambiguous (e.g., Cloudflare has User Token vs Account Token)
+- Token type only when ambiguous
 - Storage location is `--location` concern, not service name
 - Auth method is implementation detail
 
@@ -89,9 +98,9 @@
 
 ## Key Features
 
-**90-day expiry:** All tokens expire 90 days after rotation (default, configurable).
+**90-day expiry:** All tokens expire 90 days after rotation (default).
 
-**Multi-location updates:** Single rotation updates all tracked locations (Doppler + local files).
+**Multi-location updates:** Single rotation updates all tracked locations.
 
 **Metadata tracking:** Expiry dates auto-updated after successful rotation.
 

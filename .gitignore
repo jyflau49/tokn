@@ -26,9 +26,6 @@ htmlcov/
 .env
 .doppler
 
-# Windsurf
-.windsurf
-
 # Ruff
 .ruff_cache
 

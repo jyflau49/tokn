@@ -16,11 +16,13 @@ from tokn.locations.local_files import (
     LinodeCLIHandler,
     TerraformCredentialsHandler,
 )
+from tokn.locations.postman_env import PostmanEnvironmentHandler
 from tokn.providers.akamai import AkamaiEdgeGridProvider
 from tokn.providers.base import TokenProvider
 from tokn.providers.cloudflare import CloudflareProvider
 from tokn.providers.github import GitHubProvider
 from tokn.providers.linode import LinodeProvider
+from tokn.providers.postman import PostmanProvider
 from tokn.providers.terraform import TerraformAccountProvider
 
 
@@ -33,6 +35,7 @@ class RotationOrchestrator:
             "linode": LinodeProvider(),
             "terraform": TerraformAccountProvider(),
             "akamai": AkamaiEdgeGridProvider(),
+            "postman": PostmanProvider(),
         }
         self.location_handlers: dict[str, LocationHandler] = {
             "doppler": DopplerLocationHandler(),
@@ -40,6 +43,7 @@ class RotationOrchestrator:
             "linode-cli": LinodeCLIHandler(),
             "terraform-credentials": TerraformCredentialsHandler(),
             "edgerc": EdgercHandler(),
+            "postman-env": PostmanEnvironmentHandler(),
         }
 
     def rotate_token(
@@ -83,14 +87,21 @@ class RotationOrchestrator:
 
             for location in token_metadata.locations:
                 update_metadata = dict(location.metadata)
+                token_value = result.new_token
 
-                if token_metadata.service == "akamai" and location.type == "edgerc":
+                if token_metadata.service == "akamai":
                     new_client_token = provider.get_new_client_token()
                     if new_client_token:
-                        update_metadata["client_token"] = new_client_token
+                        if location.type == "edgerc":
+                            update_metadata["client_token"] = new_client_token
+                        elif (
+                            location.type == "postman-env"
+                            and location.path == "client_token"
+                        ):
+                            token_value = new_client_token
 
                 success = self._update_location(
-                    location.type, location.path, result.new_token, update_metadata
+                    location.type, location.path, token_value, update_metadata
                 )
                 if success:
                     updated_locations.append(f"{location.type}:{location.path}")

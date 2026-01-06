@@ -16,7 +16,7 @@ def test_token_status_active():
         service="github",
         rotation_type=RotationType.AUTO,
         locations=[],
-        expires_at=datetime.now() + timedelta(days=30)
+        expires_at=datetime.now() + timedelta(days=30),
     )
     assert token.status == TokenStatus.ACTIVE
 
@@ -27,7 +27,7 @@ def test_token_status_expiring_soon():
         service="github",
         rotation_type=RotationType.AUTO,
         locations=[],
-        expires_at=datetime.now() + timedelta(days=5)
+        expires_at=datetime.now() + timedelta(days=5),
     )
     assert token.status == TokenStatus.EXPIRING_SOON
 
@@ -38,7 +38,7 @@ def test_token_status_expired():
         service="github",
         rotation_type=RotationType.AUTO,
         locations=[],
-        expires_at=datetime.now() - timedelta(days=1)
+        expires_at=datetime.now() - timedelta(days=1),
     )
     assert token.status == TokenStatus.EXPIRED
 
@@ -47,10 +47,7 @@ def test_token_registry_operations():
     registry = TokenRegistry()
 
     token = TokenMetadata(
-        name="test",
-        service="github",
-        rotation_type=RotationType.AUTO,
-        locations=[]
+        name="test", service="github", rotation_type=RotationType.AUTO, locations=[]
     )
 
     registry.add_token(token)

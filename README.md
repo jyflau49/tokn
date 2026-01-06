@@ -1,13 +1,13 @@
 # tokn
 
-CLI tool for simple API token rotation across multiple providers.
+CLI tool for simple API token lifecycle management across multiple providers.
 
 ## Features
 
-- **Automated rotation** for 3 providers (Cloudflare, Linode, Akamai)
-- **Manual rotation** for 2 providers (GitHub, Terraform)
+- **Automated rotation** for 3 providers (Akamai, Cloudflare, Linode)
+- **Manual rotation** for 3 providers (GitHub, Postman, Terraform)
 - **Pluggable backends** - Local (default) or Doppler for multi-device sync
-- **Multi-location updates** (Doppler + local files)
+- **Multi-location updates** (local files + Doppler)
 
 ## Installation
 
@@ -57,7 +57,8 @@ tokn rotate linode-local
 | Cloudflare Account Token | `cloudflare-account-token` | ✓ | Doppler |
 | Linode PAT | `linode` | ✓ | `~/.config/linode-cli`, Doppler |
 | Terraform Account Token | `terraform` | ✗ (manual) | `~/.terraform.d/credentials.tfrc.json` |
-| Akamai API Client | `akamai` | ✓ | `~/.edgerc` |
+| Akamai API Client | `akamai` | ✓ | `~/.edgerc`, Doppler, Postman Environment |
+| Postman API Key | `postman` | ✗ (manual) | Doppler, Postman Environment |
 
 **Notes:**
 - Cloudflare tokens require `account_id` in location metadata
@@ -79,13 +80,15 @@ tokn track <name> \
   --notes "Optional notes"
 ```
 
-**Location formats:**
+**Location format examples:**
 - Doppler: `doppler:SECRET_NAME:project=proj,config=cfg`
+- Doppler (Linode): `doppler:TF_VAR_SECRET_NAME:project=proj,config=cfg`
 - Doppler (Cloudflare): `doppler:SECRET_NAME:project=proj,config=cfg,account_id=abc123`
-- Git credentials: `git-credentials:~/.git-credentials:username=git`
-- Linode CLI: `linode-cli:~/.config/linode-cli`
-- Terraform: `terraform-credentials:~/.terraform.d/credentials.tfrc.json:hostname=app.terraform.io`
-- Akamai EdgeGrid: `edgerc:~/.edgerc:section=default`
+- Git credentials (local): `git-credentials:~/.git-credentials:username=git`
+- Linode CLI (local): `linode-cli:~/.config/linode-cli`
+- Terraform (local): `terraform-credentials:~/.terraform.d/credentials.tfrc.json:hostname=app.terraform.io`
+- Akamai EdgeGrid (local): `edgerc:~/.edgerc:section=default`
+- Postman Environment: `postman-env:VAR_NAME:environment_id=env-uid`
 
 ### `tokn list`
 
@@ -120,7 +123,7 @@ tokn sync
 Update a tracked token's metadata (expiry, locations, notes).
 
 ```bash
-tokn update <name> --expiry-days 90           # Update expiry
+tokn update <name> --expiry-days 90
 tokn update <name> --add-location "doppler:NEW_SECRET:project=proj,config=cfg"
 tokn update <name> --remove-location "doppler:OLD_SECRET"
 tokn update <name> --notes "Updated notes"
@@ -156,12 +159,12 @@ tokn backend migrate --from doppler --to local        # Migrate data between bac
 
 **Backend types:**
 - **local** (default): Solo developer, works offline, no external dependencies
-- **doppler**: Multi-device sync, team collaboration via cloud
+- **doppler**: Multi-device sync, team collaboration via doppler
 
 ## Example Workflow
 
 ```bash
-# Track all 5 tokens (one-time setup)
+# Track 5 tokens (one-time setup)
 tokn track github-pat --service github --rotation-type manual \
   --location "doppler:GITHUB_TOKEN:project=my-infra,config=dev" \
   --location "git-credentials:~/.git-credentials:username=git"
@@ -201,11 +204,13 @@ tokn/
 │   ├── cloudflare.py
 │   ├── linode.py
 │   ├── terraform.py
-│   └── akamai.py
+│   ├── akamai.py
+│   └── postman.py
 ├── locations/          # Multi-location update handlers
 │   ├── doppler.py
 │   ├── local_files.py
-│   └── edgerc.py
+│   ├── edgerc.py
+│   └── postman_env.py
 └── cli.py             # Click CLI interface
 ```
 
@@ -217,7 +222,7 @@ tokn/
 - **All-or-nothing rotation** - Automatic rollback if any location update fails
 - **No token logging** - Token values never printed to console or logs
 
-See `docs/EXPLAIN.md` for detailed security architecture.
+See `docs/EXPLAIN.md` for more architecture details.
 
 ## License
 

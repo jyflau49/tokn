@@ -38,6 +38,7 @@ def cli():
             "linode",
             "terraform",
             "akamai",
+            "postman",
         ]
     ),
     help="Service provider",

@@ -131,6 +131,7 @@ class TestTerraformCredentialsHandler:
         handler.write_token(str(cred_file), "new_token")
 
         import json
+
         data = json.loads(cred_file.read_text())
         assert data["credentials"]["other.terraform.io"]["token"] == "other"
         assert data["credentials"]["app.terraform.io"]["token"] == "new_token"

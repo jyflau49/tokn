@@ -1,7 +1,7 @@
-"""tokn - CLI tool for automated monthly API token rotation.
+"""tokn - CLI tool for simple API token lifecycle management across multiple providers.
 
 Manages token rotation across multiple services with pluggable backend storage.
 """
 
-__version__ = "0.9.1"
+__version__ = "0.10.0"
 __all__ = ["__version__"]

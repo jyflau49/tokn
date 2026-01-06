@@ -22,7 +22,7 @@ stdout_console = Console()
 @click.group()
 @click.version_option(version=__version__)
 def cli():
-    """tokn - Automated API token rotation."""
+    """tokn - Simple API token management."""
     pass
 
 
@@ -39,6 +39,7 @@ def cli():
             "terraform",
             "akamai",
             "postman",
+            "other",
         ]
     ),
     help="Service provider",
@@ -69,6 +70,13 @@ def track(
         console.print(f"[red]Token '{name}' already exists[/red]", style="red")
         sys.exit(1)
 
+    if service == "other" and rotation_type == "auto":
+        console.print(
+            "[yellow]Note: Service 'other' only supports manual rotation. "
+            "Setting rotation type to 'manual'.[/yellow]"
+        )
+        rotation_type = "manual"
+
     locations = []
     for loc in location:
         if ":" not in loc:
@@ -88,7 +96,7 @@ def track(
 
         locations.append(TokenLocation(type=loc_type, path=loc_path, metadata=metadata))
 
-    if not locations:
+    if not locations and service != "other":
         console.print("[red]At least one location is required[/red]")
         sys.exit(1)
 
@@ -102,7 +110,21 @@ def track(
     )
 
     registry.add_token(token_metadata)
-    backend.save_registry(registry)
+    try:
+        backend.save_registry(registry)
+    except ValueError as e:
+        if "exceeds Doppler's 50KB limit" in str(e):
+            console.print(f"[red]✗ {str(e)}[/red]")
+            console.print("\n[yellow]Suggestions:[/yellow]")
+            console.print(
+                "  1. Remove old/unused tokens: [cyan]tokn remove <name>[/cyan]"
+            )
+            console.print(
+                "  2. Migrate to local backend: "
+                "[cyan]tokn backend migrate --from doppler --to local[/cyan]"
+            )
+            sys.exit(1)
+        raise
 
     stdout_console.print("[green]✓ Token tracked successfully[/green]")
     stdout_console.print(f"  [cyan]Name:[/cyan] {name}")
@@ -321,7 +343,13 @@ def remove(name: str):
     registry = backend.load_registry()
 
     if registry.remove_token(name):
-        backend.save_registry(registry)
+        try:
+            backend.save_registry(registry)
+        except ValueError as e:
+            if "exceeds Doppler's 50KB limit" in str(e):
+                console.print(f"[red]✗ {str(e)}[/red]")
+                sys.exit(1)
+            raise
         stdout_console.print(f"[green]✓ Token removed:[/green] [cyan]{name}[/cyan]")
     else:
         console.print(f"[red]✗ Token not found:[/red] [cyan]{name}[/cyan]")
@@ -430,7 +458,21 @@ def update(
         return
 
     registry.add_token(token)
-    backend.save_registry(registry)
+    try:
+        backend.save_registry(registry)
+    except ValueError as e:
+        if "exceeds Doppler's 50KB limit" in str(e):
+            console.print(f"[red]✗ {str(e)}[/red]")
+            console.print("\n[yellow]Suggestions:[/yellow]")
+            console.print(
+                "  1. Remove old/unused tokens: [cyan]tokn remove <name>[/cyan]"
+            )
+            console.print(
+                "  2. Migrate to local backend: "
+                "[cyan]tokn backend migrate --from doppler --to local[/cyan]"
+            )
+            sys.exit(1)
+        raise
 
     stdout_console.print(f"[green]✓ Token updated:[/green] [cyan]{name}[/cyan]")
     for change in changes_made:

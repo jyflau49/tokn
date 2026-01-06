@@ -1,6 +1,6 @@
 # tokn - Design Decisions
 
-*Modified: 2026-01-06 (v0.9.1)*
+*Modified: 2026-01-06 (v0.10.0)*
 
 `tokn` is a CLI tool for simple API token management. This document explains key design details.
 
@@ -20,6 +20,12 @@
 - Doppler CLI automatically saves encrypted fallback snapshots at `$HOME/.doppler/fallback`
 - Falls back to local snapshot after 50-60 second timeout if Doppler.com is unreachable
 - Enables offline operation after initial sync
+
+**Size limits (v0.10.0):**
+- Doppler: 50KB per secret (platform constraint)
+- Capacity: ~79 tokens with typical complexity (2 locations, metadata, notes)
+- Size checks enforced on all state-changing operations
+- Error provides actionable suggestions (remove tokens, migrate to local)
 
 **Key points:**
 - Token values never stored in metadata - only expiry dates and locations
@@ -83,6 +89,14 @@
 - Cross-compatible with all services (GitHub, Cloudflare, Linode, Terraform, Akamai, Postman)
 - Similar to `.edgerc` sections - each environment stores multiple variables
 
+### Other/Custom (v0.10.0)
+**Manual only.** Generic provider for unsupported services.
+- No validation or API integration
+- Locations are optional (allows tracking metadata-only)
+- Rotation type forced to manual
+- Use `--notes` field for custom rotation instructions
+- Escape hatch for edge cases without bloating codebase
+
 ---
 
 ## Service Naming (v0.7.0)
@@ -97,6 +111,7 @@
 | Terraform Account Token | `terraform` |
 | Akamai API Client | `akamai` |
 | Postman API Key | `postman` |
+| Other/Custom | `other` |
 
 **Principles:**
 - Vendor-first naming

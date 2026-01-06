@@ -52,6 +52,15 @@ class DopplerBackend(MetadataBackend):
     def save_registry(self, registry: TokenRegistry) -> None:
         registry.last_sync = datetime.now()
         data = registry.model_dump_json(indent=2)
+        size_bytes = len(data.encode("utf-8"))
+
+        max_size = 50 * 1024
+        if size_bytes > max_size:
+            raise ValueError(
+                f"Registry size ({size_bytes} bytes) exceeds Doppler's 50KB limit. "
+                f"Current: {len(registry.tokens)} tokens. "
+                f"Consider removing old tokens or migrating to local backend."
+            )
 
         cmd = [
             "doppler",

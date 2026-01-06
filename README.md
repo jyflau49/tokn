@@ -59,10 +59,13 @@ tokn rotate linode-local
 | Terraform Account Token | `terraform` | ✗ (manual) | `~/.terraform.d/credentials.tfrc.json`, Postman Environment |
 | Akamai API Client | `akamai` | ✓ | `~/.edgerc`, Doppler, Postman Environment |
 | Postman API Key | `postman` | ✗ (manual) | Doppler, Postman Environment |
+| Other/Custom | `other` | ✗ (manual) | Any (optional) |
 
 **Notes:**
+- **Other/Custom service**: For unsupported providers. Locations are optional. Use `--notes` for custom rotation instructions.
 - **Postman Environment** location is cross-compatible with all services
 - **Doppler** locations require [Doppler CLI](https://docs.doppler.com/docs/install-cli) installed and authenticated
+- **Doppler backend limit**: 50KB per secret (~79 tokens with typical complexity)
 - Cloudflare tokens require `account_id` in location metadata
 - All auto-rotated tokens expire 90 days after rotation
 - Multiple `--location` flags supported for updating same token across locations

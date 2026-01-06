@@ -22,6 +22,7 @@ from tokn.providers.base import TokenProvider
 from tokn.providers.cloudflare import CloudflareProvider
 from tokn.providers.github import GitHubProvider
 from tokn.providers.linode import LinodeProvider
+from tokn.providers.other import OtherProvider
 from tokn.providers.postman import PostmanProvider
 from tokn.providers.terraform import TerraformAccountProvider
 
@@ -36,6 +37,7 @@ class RotationOrchestrator:
             "terraform": TerraformAccountProvider(),
             "akamai": AkamaiEdgeGridProvider(),
             "postman": PostmanProvider(),
+            "other": OtherProvider(),
         }
         self.location_handlers: dict[str, LocationHandler] = {
             "doppler": DopplerLocationHandler(),

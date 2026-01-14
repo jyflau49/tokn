@@ -32,5 +32,8 @@ htmlcov/
 # Artifacts
 artifacts/
 
-# Personal Documentation
+# Personal docs
 MY*.md
+
+# DS Store files
+.DS_Store

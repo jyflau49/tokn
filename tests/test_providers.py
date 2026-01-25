@@ -32,6 +32,7 @@ class TestTerraformAccountProvider:
         result = provider.rotate("dummy_token")
 
         assert result.success is False
+        assert result.error is not None
         assert "terraform login" in result.error
 
     def test_provides_manual_instructions(self):

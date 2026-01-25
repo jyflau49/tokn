@@ -236,6 +236,7 @@ client_token = akab-old-client-token
         )
 
         assert result.success is False
+        assert result.error is not None
         assert ".edgerc file not found" in result.error
 
     @patch("tokn.providers.akamai.requests.Session")
@@ -273,4 +274,5 @@ client_token = akab-old-client-token
         )
 
         assert result.success is False
+        assert result.error is not None
         assert "Could not find credential" in result.error

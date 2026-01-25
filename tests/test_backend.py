@@ -58,8 +58,9 @@ class TestLocalBackend:
             # Load and verify
             loaded = backend.load_registry()
             assert len(loaded.tokens) == 1
-            assert loaded.get_token("test-token") is not None
-            assert loaded.get_token("test-token").service == "github"
+            token = loaded.get_token("test-token")
+            assert token is not None
+            assert token.service == "github"
 
     def test_sync_returns_registry(self):
         """Test sync method returns loaded registry."""
